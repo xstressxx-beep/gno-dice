@@ -1,0 +1,5 @@
+# Chemin utilisé pour les tests locaux.
+# Au déploiement, la page /admin du site remplace automatiquement ce chemin
+# par gno.land/r/<ton-adresse-g1>/gnodice.
+module = "gno.land/r/example/gnodice"
+gno = "0.9"

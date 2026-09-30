@@ -1,0 +1,49 @@
+.account {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface);
+  padding: 3px 4px 3px 12px;
+}
+
+.balance {
+  font-weight: 700;
+  color: var(--gold);
+  padding-right: 10px;
+  border-right: 1px solid var(--border-soft);
+  font-size: 0.9rem;
+}
+
+.address {
+  font-family: ui-monospace, "SFMono-Regular", Consolas, monospace;
+  font-size: 0.85rem;
+  padding: 0 8px 0 10px;
+}
+
+.logout {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: none;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 1.1rem;
+  line-height: 1;
+}
+
+.logout:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text);
+}
+
+@media (max-width: 480px) {
+  .balance {
+    display: none;
+  }
+  .account {
+    padding-left: 4px;
+  }
+}
