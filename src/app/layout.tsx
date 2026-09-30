@@ -1,9 +1,10 @@
 import type { Metadata, Viewport } from "next";
 import type { ReactNode } from "react";
 import { Cinzel, Inter } from "next/font/google";
-import { WalletProvider } from "@/components/WalletProvider";
-import { Header } from "@/components/Header";
+import { AppProviders } from "@/components/AppProviders";
 import { Footer } from "@/components/Footer";
+import { Header } from "@/components/Header";
+import { LuxuryBackdrop } from "@/components/LuxuryBackdrop";
 import "./globals.css";
 
 // Polices : Cinzel (titres, style casino) et Inter (texte).
@@ -17,18 +18,19 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: "#05080a",
+  themeColor: "#040404",
 };
 
 export default function RootLayout({ children }: Readonly<{ children: ReactNode }>) {
   return (
-    <html lang="fr" className={`${cinzel.variable} ${inter.variable}`}>
-      <body>
-        <WalletProvider>
+    <html lang="fr" className={`dark ${cinzel.variable} ${inter.variable}`}>
+      <body className="flex min-h-screen flex-col">
+        <LuxuryBackdrop />
+        <AppProviders>
           <Header />
-          {children}
+          <div className="flex-1">{children}</div>
           <Footer />
-        </WalletProvider>
+        </AppProviders>
       </body>
     </html>
   );

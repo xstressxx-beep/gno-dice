@@ -1,7 +1,8 @@
 import { useId } from "react";
 
 // Position des points (sur un carré de 100 x 100) pour chaque face du dé.
-const PIPS: Record<number, [number, number][]> = {
+// Aussi utilisé par le dé 3D (Dice3D.tsx).
+export const PIPS: Record<number, [number, number][]> = {
   1: [[50, 50]],
   2: [[28, 28], [72, 72]],
   3: [[28, 28], [50, 50], [72, 72]],

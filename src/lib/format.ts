@@ -38,3 +38,10 @@ export function parseUgnot(coins: string): number {
   const match = /(\d+)ugnot/.exec(coins);
   return match ? Number(match[1]) : 0;
 }
+
+/** Deux teintes (0-359) tirées de l'adresse : chaque wallet a toujours les mêmes couleurs d'avatar. */
+export function addressHues(address: string): [number, number] {
+  let hash = 0;
+  for (let i = 0; i < address.length; i++) hash = (hash * 31 + address.charCodeAt(i)) >>> 0;
+  return [hash % 360, (hash >>> 9) % 360];
+}

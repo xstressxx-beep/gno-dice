@@ -36,12 +36,20 @@ Gnodice/
 │   └── gnomod.toml
 ├── src/
 │   ├── app/                 ← pages du site : / (jeu) et /admin
-│   ├── components/          ← morceaux d’interface (table de jeu, historique…)
+│   ├── components/          ← morceaux d’interface (dé 3D, table de jeu, historique…)
+│   │   └── ui/              ← composants de base shadcn/ui (boutons, onglets, curseur…)
 │   ├── hooks/               ← lecture régulière des données du contrat
-│   └── lib/                 ← communication avec la blockchain et Adena (+ tests)
+│   └── lib/                 ← blockchain, Adena, calculs du dé 3D (+ tests)
 ├── .env.example             ← modèle des réglages (réseau, adresse du contrat)
+├── tailwind.config.ts       ← couleurs et animations du thème (Tailwind CSS v3)
+├── components.json          ← réglages shadcn/ui
 └── package.json
 ```
+
+**Design « casino de luxe »** : Tailwind CSS v3 (styles), shadcn/ui + Radix UI (composants accessibles au clavier),
+Framer Motion (dé 3D qui roule, bouton JOUER qui pulse, connexion Adena), React Spring (chiffres qui défilent, gains qui
+montent) et GSAP (explosion de particules dorées, poussière d’or en fond). Les couleurs sont définies une seule fois dans
+`src/app/globals.css`.
 
 **Réseau par défaut : Onyx (`onyx-1`)**, le testnet officiel de Gno.land. Il fait tourner exactement le même code que le
 mainnet, et ses GNOT sont **gratuits** (faucet). Tu peux tester sans risquer de vrai argent.
@@ -112,8 +120,8 @@ les variables sont intégrées au site au moment du build.
 
 ## 5. Les tests
 
-**Tests du site** (31 vérifications : lecture des réponses de la blockchain, construction des transactions, messages
-d’erreur…) :
+**Tests du site** (40 vérifications : lecture des réponses de la blockchain, construction des transactions, messages
+d’erreur, orientation du dé 3D…) :
 
 ```bash
 npm test
@@ -170,4 +178,5 @@ Il suffira alors de redéployer le contrat sur le mainnet et de changer les vari
 | Le contrat reste « en attente d’activation » | L’oracle d’Onyx vérifie le code ; attends quelques minutes et recharge `/admin`. |
 | « Le contrat GNO-DICE n’est pas encore déployé » | Déploie-le depuis `/admin` (section 4). Si tu l’as déployé avec un autre wallet que `g1u97n…4aff`, ajoute `NEXT_PUBLIC_GNODICE_REALM` sur Vercel puis **redéploie**. |
 | « Activation du contrat en cours… » | L’oracle d’Onyx vérifie le code : patiente quelques minutes, la page se met à jour seule. |
+| Le dé ne roule pas, aucune animation | Ton ordinateur demande de « réduire les animations » : le site respecte ce choix (accessibilité). Sur Windows : Paramètres → Accessibilité → Effets visuels → active **Effets d’animation**, puis recharge la page. |
 | `git push` refusé | Vérifie que le dépôt GitHub existe, qu’il est vide, et que l’adresse après `git remote add origin` est la bonne. |

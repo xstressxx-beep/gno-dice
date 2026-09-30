@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { formatCountdown, formatGnot, parseUgnot, shortAddress } from "./format";
+import { addressHues, formatCountdown, formatGnot, parseUgnot, shortAddress } from "./format";
 
 describe("format", () => {
   it("convertit les ugnot en GNOT", () => {
@@ -25,5 +25,15 @@ describe("format", () => {
 
   it("raccourcit une adresse", () => {
     expect(shortAddress("g1jgps44vjlq34un3lychj3v3fg6aqapxm0lrhqa")).toBe("g1jgps…rhqa");
+  });
+
+  it("donne toujours les mêmes couleurs d'avatar pour une adresse", () => {
+    const a = addressHues("g1jgps44vjlq34un3lychj3v3fg6aqapxm0lrhqa");
+    expect(a).toEqual(addressHues("g1jgps44vjlq34un3lychj3v3fg6aqapxm0lrhqa"));
+    expect(a).not.toEqual(addressHues("g1u97n45s4s6q7vn5clr8339pv4up455hnqn4aff"));
+    for (const hue of a) {
+      expect(hue).toBeGreaterThanOrEqual(0);
+      expect(hue).toBeLessThan(360);
+    }
   });
 });

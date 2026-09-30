@@ -4,16 +4,25 @@
 // des gains, mettre en pause. Chaque action est une transaction que TU signes
 // dans Adena : le site ne peut rien faire sans ton accord.
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { ADENA_DOWNLOAD_URL, sendTransaction, type TxMessage } from "@/lib/adena";
 import { config, GAS } from "@/lib/config";
 import { formatGnot, UGNOT_PER_GNOT } from "@/lib/format";
 import { estimateFee, fetchGameInfo, fetchHasSignedCLA, fetchPackageStatus, type GameInfo, type PackageStatus } from "@/lib/gno";
 import { deployMessage, fundMessage, realmPathFor, setPausedMessage, withdrawMessage, type ContractFile } from "@/lib/gnodice";
+import { Alert } from "@/components/ui/alert";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
 import { useWallet } from "./WalletProvider";
-import styles from "./AdminPanel.module.css";
 
 type Notice = { kind: "error" | "success" | "info"; text: string } | null;
+
+// Couleur de l'encadré selon le type de message.
+const ALERT_VARIANT = { error: "destructive", success: "success", info: "info" } as const;
+
+// Texte long sans espaces (adresses, chemins) : on autorise le retour à la ligne n'importe où.
+const MONO = "font-mono text-[0.88rem] [overflow-wrap:anywhere]";
 
 function errorText(e: unknown): string {
   return e instanceof Error ? e.message : String(e);
@@ -27,16 +36,14 @@ export function AdminPanel({ files }: { files: ContractFile[] }) {
   const managedPaths = [config.realmPath, livePath].filter((p, i, all): p is string => !!p && all.indexOf(p) === i);
 
   return (
-    <div className={styles.wrap}>
-      <section className={styles.intro}>
-        <h1 className="gold-text">Administration</h1>
-        <p className="muted">
+    <div className="mx-auto flex max-w-[820px] flex-col gap-6 pt-9">
+      <section>
+        <h1 className="gold-text mb-1.5 font-display text-4xl font-extrabold">Administration</h1>
+        <p className="text-muted-foreground">
           Déploie le contrat GNO-DICE sur {config.chainName}, puis gère la banque du jeu. Chaque action est une transaction que tu
           valides dans Adena.
         </p>
-        <p className={`${styles.mono} muted`} style={{ marginTop: 8 }}>
-          Contrat utilisé par le site : {config.realmPath}
-        </p>
+        <p className={`${MONO} mt-2 text-muted-foreground`}>Contrat utilisé par le site : {config.realmPath}</p>
       </section>
 
       {!ready ? (
@@ -53,29 +60,49 @@ export function AdminPanel({ files }: { files: ContractFile[] }) {
   );
 }
 
+/** Carte avec un titre doré (même style que le reste du site). */
+function Section({ title, children }: { title: string; children: ReactNode }) {
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>{title}</CardTitle>
+      </CardHeader>
+      <CardContent className="flex flex-col gap-3.5">{children}</CardContent>
+    </Card>
+  );
+}
+
 function ConnectCard() {
   const wallet = useWallet();
   return (
-    <section className="card">
-      <h2 className="card-title">Connexion</h2>
-      <p className="muted" style={{ marginBottom: 14 }}>
-        Connecte le wallet Adena qui sera (ou qui est) propriétaire du contrat.
-      </p>
-      {wallet.status === "no-extension" ? (
-        <a className="btn btn-gold" href={ADENA_DOWNLOAD_URL} target="_blank" rel="noreferrer">
-          Installer Adena
-        </a>
-      ) : wallet.wrongNetwork ? (
-        <button className="btn btn-gold" onClick={wallet.switchNetwork}>
-          Passer sur {config.chainName}
-        </button>
-      ) : (
-        <button className="btn btn-gold" onClick={wallet.connect} disabled={wallet.status === "connecting" || wallet.status === "checking"}>
-          {wallet.status === "connecting" ? "Connexion…" : "Connecter Adena"}
-        </button>
-      )}
-      {wallet.error && <p className="notice notice-error" style={{ marginTop: 14 }}>{wallet.error}</p>}
-    </section>
+    <Section title="Connexion">
+      <p className="text-muted-foreground">Connecte le wallet Adena qui sera (ou qui est) propriétaire du contrat.</p>
+      <div>
+        {wallet.status === "no-extension" ? (
+          <Button asChild>
+            <a href={ADENA_DOWNLOAD_URL} target="_blank" rel="noreferrer">
+              Installer Adena
+            </a>
+          </Button>
+        ) : wallet.wrongNetwork ? (
+          <Button onClick={wallet.switchNetwork}>Passer sur {config.chainName}</Button>
+        ) : (
+          <Button onClick={wallet.connect} disabled={wallet.status === "connecting" || wallet.status === "checking"}>
+            {wallet.status === "connecting" ? "Connexion…" : "Connecter Adena"}
+          </Button>
+        )}
+      </div>
+      {wallet.error && <Alert variant="destructive">{wallet.error}</Alert>}
+    </Section>
+  );
+}
+
+/** Liste « libellé : valeur » (sur deux colonnes, ou une seule sur mobile). */
+function KeyValues({ children }: { children: ReactNode }) {
+  return (
+    <dl className="grid grid-cols-1 gap-x-[18px] gap-y-0.5 text-[0.93rem] sm:grid-cols-[max-content_minmax(0,1fr)] sm:gap-y-2 [&_dd]:mb-2 [&_dd]:[overflow-wrap:anywhere] sm:[&_dd]:mb-0 [&_dt]:text-muted-foreground">
+      {children}
+    </dl>
   );
 }
 
@@ -169,78 +196,79 @@ function DeploySection({ address, files, onLive }: { address: string; files: Con
   const totalSize = files.reduce((sum, f) => sum + f.body.length, 0);
 
   return (
-    <section className="card">
-      <h2 className="card-title">1. Déployer le contrat</h2>
-      <dl className={styles.kv}>
+    <Section title="1. Déployer le contrat">
+      <KeyValues>
         <dt>Chemin du contrat</dt>
-        <dd className={styles.mono}>{path}</dd>
+        <dd className={MONO}>{path}</dd>
         <dt>État</dt>
         <dd>
           {status === "unknown" && "vérification…"}
           {status === "absent" && "pas encore déployé"}
-          {status === "inert" && <span className={styles.pending}>en attente d’activation par le réseau…</span>}
-          {status === "live" && <span className={styles.ok}>✔ actif</span>}
+          {status === "inert" && <span className="text-primary">en attente d’activation par le réseau…</span>}
+          {status === "live" && <span className="font-bold text-win">✔ actif</span>}
         </dd>
         <dt>Fichiers envoyés</dt>
         <dd>
           {files.map((f) => f.name).join(", ")} + gnomod.toml ({Math.round(totalSize / 1024)} Ko)
         </dd>
-      </dl>
+      </KeyValues>
 
       {!claSigned && (
-        <p className="notice notice-error">
+        <Alert variant="destructive">
           Le réseau demande de signer le CLA (accord de contribution) avant de déployer. Ouvre{" "}
           <a href={`${config.gnowebUrl}/r/sys/cla`} target="_blank" rel="noreferrer">
             gno.land/r/sys/cla
           </a>{" "}
           et signe-le avec ce wallet.
-        </p>
+        </Alert>
       )}
 
       {status === "absent" && path !== config.realmPath && (
-        <p className="notice notice-info" style={{ marginTop: 14 }}>
-          ⚠️ Ce wallet n’est pas celui prévu pour le site (le site attend <span className={styles.mono}>{config.realmPath}</span>). Tu
-          peux quand même déployer ici, mais il faudra ensuite définir la variable <code>NEXT_PUBLIC_GNODICE_REALM</code> sur Vercel. Pour
-          éviter ça, change de compte dans Adena.
-        </p>
+        <Alert variant="info">
+          ⚠️ Ce wallet n’est pas celui prévu pour le site (le site attend <span className={MONO}>{config.realmPath}</span>). Tu peux quand
+          même déployer ici, mais il faudra ensuite définir la variable <code>NEXT_PUBLIC_GNODICE_REALM</code> sur Vercel. Pour éviter ça,
+          change de compte dans Adena.
+        </Alert>
       )}
 
       {status === "absent" && (
         <>
-          <p className="muted" style={{ margin: "14px 0" }}>
+          <p className="text-muted-foreground">
             Coût estimé : environ 3,5 GNOT bloqués comme « dépôt de stockage » (le code occupe de la place sur la blockchain) + quelques
             centièmes de GNOT de frais.
           </p>
-          <button className="btn btn-gold" onClick={deploy} disabled={busy || !claSigned}>
-            {busy ? "Signature dans Adena…" : "Déployer le contrat"}
-          </button>
+          <div>
+            <Button onClick={deploy} disabled={busy || !claSigned}>
+              {busy ? "Signature dans Adena…" : "Déployer le contrat"}
+            </Button>
+          </div>
         </>
       )}
 
       {status === "live" && path === config.realmPath && (
-        <p className="notice notice-success" style={{ marginTop: 14 }}>
-          ✔ C’est le contrat utilisé par le site : rien à configurer. Pense à alimenter la banque ci-dessous pour que les joueurs
-          puissent miser.
-        </p>
+        <Alert variant="success">
+          ✔ C’est le contrat utilisé par le site : rien à configurer. Pense à alimenter la banque ci-dessous pour que les joueurs puissent
+          miser.
+        </Alert>
       )}
 
       {status === "live" && path !== config.realmPath && (
-        <div className="notice notice-info" style={{ marginTop: 14 }}>
+        <Alert variant="info">
           <p>
             <strong>Dernière étape :</strong> pour que le site utilise ce contrat, ajoute cette variable sur Vercel (Settings → Environment
             Variables) puis redéploie le site :
           </p>
-          <p className={styles.envLine}>
-            <code>NEXT_PUBLIC_GNODICE_REALM={path}</code>
-            <button className="btn btn-small" onClick={copyEnv}>
+          <p className="mt-2 flex flex-wrap items-center gap-2.5">
+            <code className="rounded bg-black/40 px-2 py-1 font-mono [overflow-wrap:anywhere]">NEXT_PUBLIC_GNODICE_REALM={path}</code>
+            <Button variant="outline" size="sm" onClick={copyEnv}>
               {copied ? "Copié ✔" : "Copier le chemin"}
-            </button>
+            </Button>
           </p>
-        </div>
+        </Alert>
       )}
 
-      {notice && <p className={`notice notice-${notice.kind}`} style={{ marginTop: 14 }}>{notice.text}</p>}
-    </section>
+      {notice && <Alert variant={ALERT_VARIANT[notice.kind]}>{notice.text}</Alert>}
+    </Section>
   );
 }
 
@@ -304,95 +332,122 @@ function ManageSection({ address, path }: { address: string; path: string }) {
   }
 
   const isOwner = info?.owner === address;
+  const notFound = !!loadError && /not found/i.test(loadError);
 
   return (
-    <section className="card">
-      <h2 className="card-title">2. Gérer la banque</h2>
-      <p className={`${styles.mono} muted`} style={{ marginBottom: 14 }}>
-        {path}
-      </p>
+    <Section title="2. Gérer la banque">
+      <p className={`${MONO} text-muted-foreground`}>{path}</p>
 
       {loadError && !info && (
-        <p className={`notice ${/not found/i.test(loadError) ? "notice-info" : "notice-error"}`}>
-          {/not found/i.test(loadError)
+        <Alert variant={notFound ? "info" : "destructive"}>
+          {notFound
             ? "Pas encore de contrat actif à ce chemin. Déploie-le ci-dessus : cette section se mettra à jour dès qu’il sera actif."
             : `Impossible de lire le contrat : ${loadError}`}
-        </p>
+        </Alert>
       )}
 
       {info && (
         <>
-          <dl className={styles.kv}>
+          <KeyValues>
             <dt>Solde de la banque</dt>
-            <dd className="gold-text">{formatGnot(info.bankroll)} GNOT</dd>
+            <dd className="gold-text font-bold">{formatGnot(info.bankroll)} GNOT</dd>
             <dt>Mise max acceptée</dt>
             <dd>{formatGnot(info.maxCoverableBet)} GNOT</dd>
             <dt>Propriétaire</dt>
-            <dd className={styles.mono}>
-              {info.owner} {isOwner && <span className={styles.ok}>(toi)</span>}
+            <dd className={MONO}>
+              {info.owner} {isOwner && <span className="font-bold text-win">(toi)</span>}
             </dd>
             <dt>État du jeu</dt>
             <dd>{info.paused ? "⏸️ en pause" : "▶️ ouvert"}</dd>
-          </dl>
+          </KeyValues>
 
-          <p className="muted" style={{ margin: "14px 0" }}>
+          <p className="text-muted-foreground">
             Pour accepter la mise maximale de 10 GNOT, la banque doit contenir au moins 40 GNOT (le joueur apporte sa mise, la banque
             complète pour payer 5×). Prévois plus pour supporter plusieurs gains d’affilée.
           </p>
 
-          <div className={styles.actions}>
-            <div className={styles.action}>
-              <label htmlFor="fund">Alimenter la banque</label>
-              <div className={styles.inputRow}>
-                <input id="fund" type="number" min={1} step={1} value={fundGnot} onChange={(e) => setFundGnot(Math.max(1, Math.round(Number(e.target.value) || 1)))} />
-                <span>GNOT</span>
-                <button
-                  className="btn btn-gold"
+          <div className="flex flex-col gap-[18px]">
+            <AdminAction label="Alimenter la banque" htmlFor="fund">
+              <AmountRow id="fund" value={fundGnot} onChange={setFundGnot}>
+                <Button
                   disabled={busy !== null}
                   onClick={() => run("fund", fundMessage(address, fundGnot * UGNOT_PER_GNOT, path), `${fundGnot} GNOT ajoutés à la banque.`)}
                 >
                   {busy === "fund" ? "…" : "Envoyer"}
-                </button>
-              </div>
-            </div>
+                </Button>
+              </AmountRow>
+            </AdminAction>
 
             {isOwner ? (
               <>
-                <div className={styles.action}>
-                  <label htmlFor="withdraw">Retirer de la banque</label>
-                  <div className={styles.inputRow}>
-                    <input id="withdraw" type="number" min={1} step={1} value={withdrawGnot} onChange={(e) => setWithdrawGnot(Math.max(1, Math.round(Number(e.target.value) || 1)))} />
-                    <span>GNOT</span>
-                    <button
-                      className="btn"
+                <AdminAction label="Retirer de la banque" htmlFor="withdraw">
+                  <AmountRow id="withdraw" value={withdrawGnot} onChange={setWithdrawGnot}>
+                    <Button
+                      variant="outline"
                       disabled={busy !== null}
-                      onClick={() => run("withdraw", withdrawMessage(address, withdrawGnot * UGNOT_PER_GNOT, path), `${withdrawGnot} GNOT retirés vers ton wallet.`)}
+                      onClick={() =>
+                        run("withdraw", withdrawMessage(address, withdrawGnot * UGNOT_PER_GNOT, path), `${withdrawGnot} GNOT retirés vers ton wallet.`)
+                      }
                     >
                       {busy === "withdraw" ? "…" : "Retirer"}
-                    </button>
-                  </div>
-                </div>
-                <div className={styles.action}>
-                  <label>Pause du jeu</label>
-                  <button
-                    className="btn"
+                    </Button>
+                  </AmountRow>
+                </AdminAction>
+                <AdminAction label="Pause du jeu">
+                  <Button
+                    variant="outline"
+                    className="self-start"
                     disabled={busy !== null}
                     onClick={() =>
                       run("pause", setPausedMessage(address, !info.paused, path), info.paused ? "Le jeu est relancé." : "Le jeu est en pause.")
                     }
                   >
                     {busy === "pause" ? "…" : info.paused ? "Relancer le jeu" : "Mettre en pause"}
-                  </button>
-                </div>
+                  </Button>
+                </AdminAction>
               </>
             ) : (
-              <p className="notice notice-info">Seul le propriétaire du contrat peut retirer des fonds ou mettre le jeu en pause.</p>
+              <Alert variant="info">Seul le propriétaire du contrat peut retirer des fonds ou mettre le jeu en pause.</Alert>
             )}
           </div>
         </>
       )}
 
-      {notice && <p className={`notice notice-${notice.kind}`} style={{ marginTop: 14 }}>{notice.text}</p>}
-    </section>
+      {notice && <Alert variant={ALERT_VARIANT[notice.kind]}>{notice.text}</Alert>}
+    </Section>
+  );
+}
+
+function AdminAction({ label, htmlFor, children }: { label: string; htmlFor?: string; children: ReactNode }) {
+  return (
+    <div className="flex flex-col gap-2">
+      {htmlFor ? (
+        <label htmlFor={htmlFor} className="font-semibold">
+          {label}
+        </label>
+      ) : (
+        <p className="font-semibold">{label}</p>
+      )}
+      {children}
+    </div>
+  );
+}
+
+/** Champ « montant en GNOT » (nombre entier ≥ 1) suivi d'un bouton. */
+function AmountRow({ id, value, onChange, children }: { id: string; value: number; onChange: (v: number) => void; children: ReactNode }) {
+  return (
+    <div className="flex items-center gap-2.5">
+      <Input
+        id={id}
+        type="number"
+        min={1}
+        step={1}
+        value={value}
+        onChange={(e) => onChange(Math.max(1, Math.round(Number(e.target.value) || 1)))}
+        className="w-[110px]"
+      />
+      <span>GNOT</span>
+      {children}
+    </div>
   );
 }

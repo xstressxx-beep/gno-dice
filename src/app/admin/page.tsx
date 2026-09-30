@@ -31,7 +31,7 @@ function readContractFiles(): ContractFile[] {
 
 export default function AdminPage() {
   return (
-    <main className="container">
+    <main className="page-container">
       <AdminPanel files={readContractFiles()} />
     </main>
   );
