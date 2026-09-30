@@ -17,17 +17,28 @@ export function Casino() {
 
   return (
     <>
-      {!config.realmPath && (
-        <p className={`notice notice-info ${styles.setup}`}>
-          <strong>Contrat pas encore configuré.</strong> Propriétaire du site : déploie le contrat depuis la page{" "}
-          <Link href="/admin">/admin</Link>, puis renseigne la variable <code>NEXT_PUBLIC_GNODICE_REALM</code> sur Vercel (voir le README).
+      {game.status === "absent" && (
+        <p className={`notice notice-info ${styles.banner}`}>
+          <strong>Le contrat GNO-DICE n’est pas encore déployé sur {config.chainName}.</strong> Propriétaire du site : déploie-le en
+          quelques clics depuis la page <Link href="/admin">/admin</Link> avec ton wallet Adena.
+        </p>
+      )}
+      {game.status === "inert" && (
+        <p className={`notice notice-info ${styles.banner}`}>
+          <strong>Le contrat vient d’être déployé.</strong> Le réseau le vérifie avant de l’activer (en général quelques minutes) : la
+          page se mettra à jour toute seule.
+        </p>
+      )}
+      {game.status === "unreachable" && !game.info && (
+        <p className={`notice notice-error ${styles.banner}`}>
+          Impossible de joindre le réseau Gno pour le moment ({game.error}). Nouvel essai automatique dans quelques secondes…
         </p>
       )}
       <div className={styles.grid}>
-        <GameTable info={game.info} player={game.player} clockOffset={game.clockOffset} dataError={game.error} refresh={game.refresh} />
-        <BankPanel info={game.info} loading={game.loading} error={game.error} />
+        <GameTable info={game.info} player={game.player} status={game.status} clockOffset={game.clockOffset} refresh={game.refresh} />
+        <BankPanel info={game.info} status={game.status} />
       </div>
-      <History player={game.player} loading={game.loading || (playerAddress !== null && game.player === null && !game.error)} />
+      <History player={game.player} contractLive={game.status === "live"} loading={playerAddress !== null && game.player === null && game.status !== "unreachable"} />
     </>
   );
 }

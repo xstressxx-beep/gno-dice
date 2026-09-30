@@ -1,6 +1,5 @@
 "use client";
 
-import { config } from "@/lib/config";
 import { formatDate, formatGnot } from "@/lib/format";
 import type { PlayerInfo } from "@/lib/gno";
 import { Die } from "./Die";
@@ -9,6 +8,8 @@ import styles from "./History.module.css";
 
 type Props = {
   player: PlayerInfo | null;
+  /** true quand le contrat est actif sur la blockchain */
+  contractLive: boolean;
   loading: boolean;
 };
 
@@ -16,13 +17,13 @@ type Props = {
  * Les 10 dernières parties du joueur connecté.
  * Les données viennent directement du contrat (fonction GetPlayerJSON).
  */
-export function History({ player, loading }: Props) {
+export function History({ player, contractLive, loading }: Props) {
   const wallet = useWallet();
   const connected = wallet.status === "connected" && !wallet.wrongNetwork;
 
   let content;
-  if (!config.realmPath) {
-    content = <p className="muted">L’historique s’affichera dès que le contrat sera configuré.</p>;
+  if (!contractLive && !player) {
+    content = <p className="muted">L’historique s’affichera dès que le contrat sera actif.</p>;
   } else if (!connected) {
     content = <p className="muted">Connecte ton wallet Adena pour voir tes 10 dernières parties.</p>;
   } else if (!player) {

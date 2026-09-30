@@ -15,8 +15,8 @@ Le site (Next.js) sert d’interface : il lit le contrat gratuitement et demande
 
 1. [Ce qu’il y a dans le projet](#1-ce-quil-y-a-dans-le-projet)
 2. [Lancer le site sur ton ordinateur](#2-lancer-le-site-sur-ton-ordinateur)
-3. [Déployer le contrat (avec Adena)](#3-déployer-le-contrat-avec-adena)
-4. [Mettre le site en ligne sur Vercel](#4-mettre-le-site-en-ligne-sur-vercel)
+3. [Mettre le site en ligne (GitHub + Vercel)](#3-mettre-le-site-en-ligne-github--vercel)
+4. [Déployer le contrat depuis le site (avec Adena)](#4-déployer-le-contrat-depuis-le-site-avec-adena)
 5. [Les tests](#5-les-tests)
 6. [Sécurité et limites (à lire !)](#6-sécurité-et-limites-à-lire-)
 7. [Passer au mainnet plus tard](#7-passer-au-mainnet-plus-tard)
@@ -57,68 +57,62 @@ npm install        # installe les dépendances (une seule fois)
 npm run dev        # lance le site sur http://localhost:3000
 ```
 
-Tant que le contrat n’est pas déployé, le site affiche « Contrat pas encore configuré » : c’est normal.
-
-Pour tes réglages locaux, copie `.env.example` en `.env.local` et remplis `NEXT_PUBLIC_GNODICE_REALM` (voir étape 3).
+Tant que le contrat n’est pas déployé, le site affiche « Le contrat GNO-DICE n’est pas encore déployé » : c’est normal.
 
 ---
 
-## 3. Déployer le contrat (avec Adena)
+## 3. Mettre le site en ligne (GitHub + Vercel)
 
-Pas besoin d’installer d’outil Gno : le site sait envoyer le contrat, c’est toi qui signes dans Adena.
-
-1. **Installe Adena** : <https://adena.app> (extension Chrome), crée ton wallet et **note ta phrase secrète sur papier**.
-2. Dans Adena, choisis le réseau **Onyx** (le site te le proposera automatiquement sinon).
-3. **Récupère des GNOT gratuits** sur le faucet : <https://faucet.gno.land> (prévois ~60 GNOT : 4 pour le déploiement,
-   50 pour la banque du jeu, le reste pour jouer).
-4. Lance le site (`npm run dev`) et ouvre **http://localhost:3000/admin**.
-5. Clique **« Connecter Adena »**, puis **« Déployer le contrat »** et accepte dans Adena.
-   - Le contrat est publié à l’adresse `gno.land/r/<ton-adresse>/gnodice` et **tu en deviens le propriétaire**.
-   - Coût : environ **3,5 GNOT bloqués** (dépôt de stockage : le code prend de la place sur la blockchain) + ~0,1 GNOT de frais.
-   - Sur Onyx, un « oracle » officiel vérifie le code avant de l’activer : le statut passe de *en attente* à *✔ actif*,
-     en général en moins d’une minute.
-6. **Alimente la banque** (section « Gérer la banque ») : la banque paie les gains. Pour accepter la mise maximale de
-   10 GNOT, elle doit contenir **au moins 40 GNOT**. 50 à 100 GNOT est un bon début.
-7. Copie le chemin affiché (bouton « Copier le chemin ») : c’est la valeur de `NEXT_PUBLIC_GNODICE_REALM`.
-
-Le contrat est aussi visible sur gnoweb : `https://onyx.testnets.gno.land/r/<ton-adresse>/gnodice`.
-
----
-
-## 4. Mettre le site en ligne sur Vercel
+Le code est déjà enregistré dans Git (commit fait). Il reste à l’envoyer sur GitHub puis à le brancher sur Vercel.
 
 > ⚠️ **Attention : `gnosino.vercel.app` héberge actuellement ta roulette « Gnosino ».**
 > Si tu déploies GNO-DICE dans **ce même projet Vercel**, la roulette sera **remplacée**.
-> Crée plutôt un **nouveau projet Vercel** (par ex. `gnodice.vercel.app`), sauf si tu veux vraiment remplacer la roulette.
+> Crée un **nouveau projet Vercel** (par ex. `gnodice.vercel.app`), sauf si tu veux vraiment remplacer la roulette.
 
-1. **Installe Git** : <https://git-scm.com/download/win> (il n’est pas encore installé sur ton PC).
-2. Crée un dépôt sur GitHub (bouton « New repository », par ex. `gnodice`), puis dans ce dossier :
+1. Sur <https://github.com/new>, crée un dépôt **vide** nommé `gnodice` (ne coche ni README, ni .gitignore, ni licence).
+2. Dans un terminal ouvert dans ce dossier (`Documents\Gnodice`) :
    ```bash
-   git init
-   git add .
-   git commit -m "GNO-DICE : contrat Gno + site Next.js"
-   git branch -M main
-   git remote add origin https://github.com/<ton-compte>/gnodice.git
+   git remote add origin https://github.com/<ton-compte-github>/gnodice.git
    git push -u origin main
    ```
-3. Sur <https://vercel.com/new>, **importe ce dépôt** (Vercel détecte Next.js tout seul, ne change rien aux réglages de build).
-4. Avant de cliquer sur *Deploy*, ouvre **Environment Variables** et ajoute :
+   Une fenêtre GitHub s’ouvre la première fois pour te connecter : c’est normal.
+3. Sur <https://vercel.com/new>, clique **Import** à côté du dépôt `gnodice`.
+   Vercel détecte Next.js tout seul : **ne change aucun réglage**, aucune variable n’est nécessaire. Clique **Deploy**. ✅
 
-   | Nom | Valeur |
-   |---|---|
-   | `NEXT_PUBLIC_GNODICE_REALM` | `gno.land/r/<ton-adresse>/gnodice` (copié à l’étape 3) |
+Ensuite, à chaque `git push`, Vercel remet le site à jour automatiquement.
 
-   Les autres variables sont facultatives (par défaut : Onyx). Voir `.env.example`.
-5. Clique **Deploy**. ✅
+---
 
-Si tu modifies une variable plus tard, il faut **redéployer** (Deployments → ⋯ → Redeploy), car elles sont intégrées au
-site au moment du build.
+## 4. Déployer le contrat depuis le site (avec Adena)
+
+Pas besoin d’installer d’outil Gno : le site envoie le contrat, c’est toi qui signes dans Adena.
+
+1. Dans **Adena**, utilise ton compte habituel **`g1u97n45s4s6q7vn5clr8339pv4up455hnqn4aff`** (celui de la roulette) et choisis
+   le réseau **Onyx** (le site te le propose automatiquement sinon).
+2. **Récupère des GNOT gratuits** sur <https://faucet.gno.land> (réseau Onyx). Prévois ~60 GNOT : 4 pour le déploiement,
+   50 pour la banque du jeu, le reste pour jouer.
+3. Ouvre **`https://<ton-site>.vercel.app/admin`**, clique **« Connecter Adena »** puis **« Déployer le contrat »**, et accepte dans Adena.
+   - Le contrat est publié à `gno.land/r/g1u97n45s4s6q7vn5clr8339pv4up455hnqn4aff/gnodice` et **tu en deviens le propriétaire**.
+   - Coût : environ **3,5 GNOT bloqués** (dépôt de stockage : le code prend de la place sur la blockchain) + ~0,1 GNOT de frais.
+   - Sur Onyx, un « oracle » officiel vérifie le code avant de l’activer : l’état passe de *en attente* à *✔ actif*,
+     en général en quelques minutes. La page se met à jour toute seule.
+4. Quand la page affiche **« ✔ C’est le contrat utilisé par le site : rien à configurer »**, **alimente la banque**
+   (section « Gérer la banque ») : c’est elle qui paie les gains. Pour accepter la mise maximale de 10 GNOT, elle doit
+   contenir **au moins 40 GNOT** ; 50 à 100 GNOT est un bon début.
+5. Retourne sur la page d’accueil : **tu peux jouer** 🎲
+
+Le contrat est aussi visible sur gnoweb :
+<https://onyx.testnets.gno.land/r/g1u97n45s4s6q7vn5clr8339pv4up455hnqn4aff/gnodice>
+
+**Tu déploies avec un autre wallet ?** La page `/admin` te l’indique et affiche le chemin exact. Ajoute-le alors sur Vercel
+(Settings → Environment Variables → `NEXT_PUBLIC_GNODICE_REALM`), puis **redéploie** (Deployments → ⋯ → Redeploy) :
+les variables sont intégrées au site au moment du build.
 
 ---
 
 ## 5. Les tests
 
-**Tests du site** (30 vérifications : lecture des réponses de la blockchain, construction des transactions, messages
+**Tests du site** (31 vérifications : lecture des réponses de la blockchain, construction des transactions, messages
 d’erreur…) :
 
 ```bash
@@ -174,4 +168,6 @@ Il suffira alors de redéployer le contrat sur le mainnet et de changer les vari
 | « Mise max possible : X GNOT » / « La banque est vide » | Alimente la banque depuis `/admin`. |
 | « Prochain lancer dans mm:ss » | C’est la règle des 10 minutes, patience 🙂 |
 | Le contrat reste « en attente d’activation » | L’oracle d’Onyx vérifie le code ; attends quelques minutes et recharge `/admin`. |
-| « Contrat pas encore configuré » en ligne | Ajoute `NEXT_PUBLIC_GNODICE_REALM` sur Vercel puis **redéploie**. |
+| « Le contrat GNO-DICE n’est pas encore déployé » | Déploie-le depuis `/admin` (section 4). Si tu l’as déployé avec un autre wallet que `g1u97n…4aff`, ajoute `NEXT_PUBLIC_GNODICE_REALM` sur Vercel puis **redéploie**. |
+| « Activation du contrat en cours… » | L’oracle d’Onyx vérifie le code : patiente quelques minutes, la page se met à jour seule. |
+| `git push` refusé | Vérifie que le dépôt GitHub existe, qu’il est vide, et que l’adresse après `git remote add origin` est la bonne. |

@@ -23,7 +23,8 @@ export function AdminPanel({ files }: { files: ContractFile[] }) {
   const wallet = useWallet();
   const [livePath, setLivePath] = useState<string | null>(null);
   const ready = wallet.status === "connected" && !wallet.wrongNetwork && wallet.address;
-  const managedPath = config.realmPath || livePath;
+  // Le contrat utilisé par le site, et celui que ce wallet vient de déployer s'il est différent.
+  const managedPaths = [config.realmPath, livePath].filter((p, i, all): p is string => !!p && all.indexOf(p) === i);
 
   return (
     <div className={styles.wrap}>
@@ -33,6 +34,9 @@ export function AdminPanel({ files }: { files: ContractFile[] }) {
           Déploie le contrat GNO-DICE sur {config.chainName}, puis gère la banque du jeu. Chaque action est une transaction que tu
           valides dans Adena.
         </p>
+        <p className={`${styles.mono} muted`} style={{ marginTop: 8 }}>
+          Contrat utilisé par le site : {config.realmPath}
+        </p>
       </section>
 
       {!ready ? (
@@ -40,14 +44,9 @@ export function AdminPanel({ files }: { files: ContractFile[] }) {
       ) : (
         <>
           <DeploySection address={wallet.address!} files={files} onLive={setLivePath} />
-          {managedPath ? (
-            <ManageSection address={wallet.address!} path={managedPath} />
-          ) : (
-            <section className="card">
-              <h2 className="card-title">Gérer le contrat</h2>
-              <p className="muted">Déploie d’abord le contrat : les réglages de la banque apparaîtront ici.</p>
-            </section>
-          )}
+          {managedPaths.map((path) => (
+            <ManageSection key={path} address={wallet.address!} path={path} />
+          ))}
         </>
       )}
     </div>
@@ -198,6 +197,14 @@ function DeploySection({ address, files, onLive }: { address: string; files: Con
         </p>
       )}
 
+      {status === "absent" && path !== config.realmPath && (
+        <p className="notice notice-info" style={{ marginTop: 14 }}>
+          ⚠️ Ce wallet n’est pas celui prévu pour le site (le site attend <span className={styles.mono}>{config.realmPath}</span>). Tu
+          peux quand même déployer ici, mais il faudra ensuite définir la variable <code>NEXT_PUBLIC_GNODICE_REALM</code> sur Vercel. Pour
+          éviter ça, change de compte dans Adena.
+        </p>
+      )}
+
       {status === "absent" && (
         <>
           <p className="muted" style={{ margin: "14px 0" }}>
@@ -208,6 +215,13 @@ function DeploySection({ address, files, onLive }: { address: string; files: Con
             {busy ? "Signature dans Adena…" : "Déployer le contrat"}
           </button>
         </>
+      )}
+
+      {status === "live" && path === config.realmPath && (
+        <p className="notice notice-success" style={{ marginTop: 14 }}>
+          ✔ C’est le contrat utilisé par le site : rien à configurer. Pense à alimenter la banque ci-dessous pour que les joueurs
+          puissent miser.
+        </p>
       )}
 
       {status === "live" && path !== config.realmPath && (
@@ -252,16 +266,23 @@ function ManageSection({ address, path }: { address: string; path: string }) {
 
   useEffect(() => {
     let cancelled = false;
-    fetchGameInfo(path).then(
-      (i) => {
-        if (cancelled) return;
-        setInfo(i);
-        setLoadError(null);
-      },
-      (e) => !cancelled && setLoadError(errorText(e)),
-    );
+    const readInfo = () =>
+      fetchGameInfo(path).then(
+        (i) => {
+          if (cancelled) return;
+          setInfo(i);
+          setLoadError(null);
+        },
+        (e) => !cancelled && setLoadError(errorText(e)),
+      );
+    readInfo();
+    // Tant que le contrat n'est pas lisible (déploiement en cours), on réessaie.
+    const timer = setInterval(() => {
+      if (!cancelled) readInfo();
+    }, 8000);
     return () => {
       cancelled = true;
+      clearInterval(timer);
     };
   }, [path]);
 
@@ -271,9 +292,10 @@ function ManageSection({ address, path }: { address: string; path: string }) {
     try {
       const fee = await estimateFee(GAS.admin);
       await sendTransaction([message], GAS.admin, fee);
-      setNotice({ kind: "success", text: success });
+      // On relit la banque AVANT d'afficher le succès, pour montrer le nouveau solde.
       await load();
       wallet.refreshBalance();
+      setNotice({ kind: "success", text: success });
     } catch (e) {
       setNotice({ kind: "error", text: errorText(e) });
     } finally {
@@ -290,7 +312,13 @@ function ManageSection({ address, path }: { address: string; path: string }) {
         {path}
       </p>
 
-      {loadError && !info && <p className="notice notice-error">Impossible de lire le contrat : {loadError}</p>}
+      {loadError && !info && (
+        <p className={`notice ${/not found/i.test(loadError) ? "notice-info" : "notice-error"}`}>
+          {/not found/i.test(loadError)
+            ? "Pas encore de contrat actif à ce chemin. Déploie-le ci-dessus : cette section se mettra à jour dès qu’il sera actif."
+            : `Impossible de lire le contrat : ${loadError}`}
+        </p>
+      )}
 
       {info && (
         <>

@@ -1,29 +1,33 @@
 import { config, GAME } from "@/lib/config";
 import { formatGnot, shortAddress } from "@/lib/format";
 import type { GameInfo } from "@/lib/gno";
+import type { ContractStatus } from "@/hooks/useGnodice";
 import { Die } from "./Die";
 import styles from "./BankPanel.module.css";
 
 type Props = {
   info: GameInfo | null;
-  loading: boolean;
-  error: string | null;
+  status: ContractStatus;
+};
+
+const STATUS_TEXT: Record<ContractStatus, string> = {
+  loading: "Chargement…",
+  live: "",
+  absent: "Contrat pas encore déployé.",
+  inert: "Contrat en cours d’activation…",
+  unreachable: "Réseau injoignable pour le moment.",
 };
 
 /** Colonne de droite : la banque du casino, les règles et les dernières parties. */
-export function BankPanel({ info, loading, error }: Props) {
-  const contractUrl = config.realmPath ? `${config.gnowebUrl}/${config.realmPath.replace(/^gno\.land\//, "")}` : null;
+export function BankPanel({ info, status }: Props) {
+  const contractUrl = `${config.gnowebUrl}/${config.realmPath.replace(/^gno\.land\//, "")}`;
 
   return (
     <aside className={styles.panel}>
       <section className="card">
         <h2 className="card-title">Banque du casino</h2>
-        {!config.realmPath ? (
-          <p className="muted">Contrat non configuré.</p>
-        ) : error && !info ? (
-          <p className="notice notice-error">Impossible de lire le contrat : {error}</p>
-        ) : !info ? (
-          <p className="muted">{loading ? "Chargement…" : "—"}</p>
+        {!info ? (
+          <p className="muted">{STATUS_TEXT[status]}</p>
         ) : (
           <dl className={styles.stats}>
             <div>
@@ -63,7 +67,7 @@ export function BankPanel({ info, loading, error }: Props) {
         </ol>
         <p className={`${styles.small} muted`}>
           Tout se passe sur la blockchain : le contrat reçoit ta mise, lance le dé et te paie automatiquement.
-          {contractUrl && (
+          {status === "live" && (
             <>
               {" "}
               <a href={contractUrl} target="_blank" rel="noreferrer">

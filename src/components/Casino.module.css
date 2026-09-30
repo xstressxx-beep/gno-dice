@@ -6,15 +6,8 @@
   margin-bottom: 24px;
 }
 
-.setup {
+.banner {
   margin-bottom: 20px;
-}
-
-.setup code {
-  font-family: ui-monospace, "SFMono-Regular", Consolas, monospace;
-  background: rgba(0, 0, 0, 0.35);
-  padding: 1px 6px;
-  border-radius: 6px;
 }
 
 @media (max-width: 900px) {

@@ -1,0 +1,10 @@
+# Fins de ligne Unix (LF) pour tous les fichiers texte, même sous Windows :
+# le contrat Gno et le site restent identiques sur ton PC, GitHub et Vercel.
+* text=auto eol=lf
+
+# Fichiers binaires : à ne jamais modifier
+*.png binary
+*.jpg binary
+*.ico binary
+*.woff binary
+*.woff2 binary

@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { config } from "./config";
 import { estimateFee, fetchBalance, fetchGameInfo, fetchPlayer, GnoQueryError, isValidAddress, isValidRealmPath } from "./gno";
 
 const REALM = "gno.land/r/g1vu4h2u5s99g7pz8exlv3dsd2ks3ness2ssq7hl/gnodice";
@@ -34,6 +35,13 @@ describe("validation", () => {
     expect(isValidAddress("g1jgps44vjlq34un3lychj3v3fg6aqapxm0lrhq")).toBe(false); // trop courte
     expect(isValidAddress("G1JGPS44VJLQ34UN3LYCHJ3V3FG6AQAPXM0LRHQA")).toBe(false); // majuscules
     expect(isValidAddress('g1jgps44vjlq34un3lychj3v3fg6aqapxm0lrh")')).toBe(false); // tentative d'injection
+  });
+
+  it("la configuration par défaut vise un contrat valide sur Onyx", () => {
+    expect(config.chainId).toBe("onyx-1");
+    expect(isValidRealmPath(config.realmPath)).toBe(true);
+    expect(config.realmPath).toBe("gno.land/r/g1u97n45s4s6q7vn5clr8339pv4up455hnqn4aff/gnodice");
+    expect(isValidAddress(config.realmPath.split("/")[2])).toBe(true);
   });
 
   it("reconnaît un chemin de contrat", () => {

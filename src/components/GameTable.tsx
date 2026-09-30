@@ -2,10 +2,11 @@
 
 import { useEffect, useState, type CSSProperties } from "react";
 import { ADENA_DOWNLOAD_URL, sendTransaction } from "@/lib/adena";
-import { config, GAME, GAS } from "@/lib/config";
+import { config, FIRST_GAME_DEPOSIT_UGNOT, GAME, GAS, NEXT_GAME_DEPOSIT_UGNOT } from "@/lib/config";
 import { formatCountdown, formatGnot, UGNOT_PER_GNOT } from "@/lib/format";
 import { estimateFee, type GameInfo, type PlayerInfo } from "@/lib/gno";
 import { parsePlayResult, playMessage } from "@/lib/gnodice";
+import type { ContractStatus } from "@/hooks/useGnodice";
 import { useNow } from "@/hooks/useNow";
 import { Die } from "./Die";
 import { useWallet } from "./WalletProvider";
@@ -14,8 +15,8 @@ import styles from "./GameTable.module.css";
 type Props = {
   info: GameInfo | null;
   player: PlayerInfo | null;
+  status: ContractStatus;
   clockOffset: number;
-  dataError: string | null;
   refresh: () => Promise<PlayerInfo | null>;
 };
 
@@ -27,7 +28,7 @@ const DEFAULT_FEE_UGNOT = 25_000;
 const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 /** La table de jeu : choix du chiffre, mise, lancer et résultat. */
-export function GameTable({ info, player, clockOffset, dataError, refresh }: Props) {
+export function GameTable({ info, player, status, clockOffset, refresh }: Props) {
   const wallet = useWallet();
   const now = useNow();
 
@@ -64,7 +65,11 @@ export function GameTable({ info, player, clockOffset, dataError, refresh }: Pro
   const cooldownProgress = cooldownLeft > 0 ? 1 - cooldownLeft / cooldownTotal : 1;
 
   const betUgnot = bet * UGNOT_PER_GNOT;
-  const notEnoughFunds = wallet.balance !== null && wallet.balance < betUgnot + fee;
+  // La 1re partie d'un joueur bloque un petit dépôt de stockage (sa fiche sur la blockchain).
+  const firstGame = !player || player.played === 0;
+  const deposit = firstGame ? FIRST_GAME_DEPOSIT_UGNOT : NEXT_GAME_DEPOSIT_UGNOT;
+  const needed = betUgnot + fee + deposit;
+  const notEnoughFunds = wallet.balance !== null && wallet.balance < needed;
 
   async function play() {
     if (!wallet.address || guess === null) return;
@@ -99,12 +104,14 @@ export function GameTable({ info, player, clockOffset, dataError, refresh }: Pro
 
   // --- Bouton principal : son texte et son action dépendent de la situation ---
   let button: { label: string; onClick?: () => void; href?: string; disabled?: boolean };
-  if (!config.realmPath) button = { label: "Contrat non configuré", disabled: true };
+  if (status === "absent") button = { label: "Contrat pas encore déployé", disabled: true };
+  else if (status === "inert") button = { label: "Activation du contrat en cours…", disabled: true };
+  else if (status === "loading") button = { label: "Chargement du jeu…", disabled: true };
+  else if (!info) button = { label: "Réseau Gno injoignable", disabled: true };
   else if (wallet.status === "no-extension") button = { label: "Installer Adena pour jouer", href: ADENA_DOWNLOAD_URL };
   else if (wallet.status !== "connected") button = { label: "Connecter Adena pour jouer", onClick: wallet.connect, disabled: wallet.status === "connecting" || wallet.status === "checking" };
   else if (wallet.wrongNetwork) button = { label: `Passer sur ${config.chainName}`, onClick: wallet.switchNetwork };
   else if (pending) button = { label: "Le dé roule…", disabled: true };
-  else if (!info) button = { label: dataError ? "Contrat injoignable" : "Chargement du jeu…", disabled: true };
   else if (info.paused) button = { label: "Jeu en pause", disabled: true };
   else if (cooldownLeft > 0) button = { label: `Prochain lancer dans ${formatCountdown(cooldownLeft)}`, disabled: true };
   else if (guess === null) button = { label: "Choisis un chiffre", disabled: true };
@@ -182,7 +189,11 @@ export function GameTable({ info, player, clockOffset, dataError, refresh }: Pro
         </div>
         <p className={styles.potential}>
           Gain possible : <strong className="gold-text">{bet * multiplier} GNOT</strong>
-          <span className="muted"> · 1 chance sur 6 · frais réseau ≈ {formatGnot(fee, 3)} GNOT</span>
+          <span className="muted">
+            {" "}
+            · 1 chance sur 6 · frais réseau ≈ {formatGnot(fee, 3)} GNOT
+            {firstGame && " (+ ~0,44 GNOT de dépôt de stockage à ta 1re partie)"}
+          </span>
         </p>
       </div>
 
@@ -246,7 +257,8 @@ export function GameTable({ info, player, clockOffset, dataError, refresh }: Pro
       {wallet.error && <p className="notice notice-error">{wallet.error}</p>}
       {notEnoughFunds && wallet.status === "connected" && !wallet.wrongNetwork && config.faucetUrl && (
         <p className="notice notice-info">
-          Il te faut au moins {bet} GNOT + les frais. Sur le testnet, tu peux obtenir des GNOT gratuits sur le{" "}
+          Il te faut au moins {formatGnot(needed)} GNOT (mise + frais{firstGame ? " + dépôt de 1re partie" : ""}). Sur le testnet, tu peux
+          obtenir des GNOT gratuits sur le{" "}
           <a href={config.faucetUrl} target="_blank" rel="noreferrer">
             faucet
           </a>

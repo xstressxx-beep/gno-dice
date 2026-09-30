@@ -75,6 +75,10 @@
   font-weight: 600;
 }
 
+.action > :global(.btn) {
+  align-self: flex-start;
+}
+
 .inputRow {
   display: flex;
   align-items: center;
