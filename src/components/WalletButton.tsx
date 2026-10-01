@@ -83,7 +83,7 @@ function ConnectingPill() {
     <div className="relative h-10 overflow-hidden rounded-full p-px" role="status">
       <motion.span
         aria-hidden
-        className="absolute inset-[-150%] bg-[conic-gradient(from_0deg,transparent_0deg,#f5c542_70deg,#fde7a1_110deg,transparent_180deg)]"
+        className="absolute inset-[-150%] bg-[conic-gradient(from_0deg,transparent_0deg,#E3173E_70deg,#EFEADF_110deg,transparent_180deg)]"
         animate={{ rotate: 360 }}
         transition={{ duration: 1.1, repeat: Infinity, ease: "linear" }}
       />
@@ -117,7 +117,7 @@ function AccountMenu({ address }: { address: string }) {
       <DropdownMenuTrigger asChild>
         <button
           type="button"
-          className="group relative flex h-10 min-w-0 items-center gap-2 rounded-full border border-primary/35 bg-black/50 py-1 pl-1 pr-2.5 text-sm transition-colors hover:border-primary/70 hover:bg-accent/60 data-[state=open]:border-primary/80"
+          className="group relative flex h-10 min-w-0 items-center gap-2 rounded-full border border-primary/35 bg-lapis-950/50 py-1 pl-1 pr-2.5 text-sm transition-colors hover:border-primary/70 hover:bg-accent/60 data-[state=open]:border-primary/80"
           aria-label={`Wallet connecté ${shortAddress(address)} : ouvrir le menu`}
         >
           {/* Onde dorée une seule fois, à la connexion */}
@@ -130,7 +130,7 @@ function AccountMenu({ address }: { address: string }) {
           />
           <span
             aria-hidden
-            className="size-8 shrink-0 rounded-full border border-gold-300/60 shadow-gold"
+            className="size-8 shrink-0 rounded-full border border-chalk-300/60 shadow-none"
             style={{ background: `conic-gradient(from 120deg, hsl(${h1} 80% 55%), hsl(${h2} 85% 45%), hsl(${h1} 80% 55%))` }}
           />
           <span className="font-bold text-primary tabular-nums">

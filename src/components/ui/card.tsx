@@ -1,18 +1,16 @@
 import * as React from "react";
 import { cn } from "@/lib/utils";
 
-// Carte shadcn/ui : panneau noir laqué avec liseré doré.
+// Carte shadcn/ui : panneau lapis, filet fin.
 
 function Card({ className, ...props }: React.ComponentProps<"div">) {
   return (
     <div
       data-slot="card"
-      // Halo doré qui suit la souris (voir globals.css et CustomCursor)
+      // Halo qui suit la souris (voir globals.css et CustomCursor)
       data-spotlight=""
       className={cn(
-        "relative rounded-lg border border-primary/20 bg-card/85 text-card-foreground shadow-luxe backdrop-blur-md",
-        // Fin reflet doré sur le bord supérieur
-        "before:pointer-events-none before:absolute before:inset-x-6 before:top-0 before:h-px before:bg-gradient-to-r before:from-transparent before:via-primary/60 before:to-transparent",
+        "relative rounded-panel border border-border bg-card/70 text-card-foreground shadow-luxe backdrop-blur-md",
         className,
       )}
       {...props}
@@ -28,7 +26,7 @@ function CardTitle({ className, ...props }: React.ComponentProps<"h2">) {
   return (
     <h2
       data-slot="card-title"
-      className={cn("font-display text-base font-bold uppercase tracking-[0.16em] text-primary", className)}
+      className={cn("display-soft text-2xl leading-none text-chalk", className)}
       {...props}
     />
   );

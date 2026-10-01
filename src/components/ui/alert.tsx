@@ -4,14 +4,14 @@ import { cn } from "@/lib/utils";
 
 // Encadré de message (info, succès, erreur).
 const alertVariants = cva(
-  "relative w-full rounded-md border px-4 py-3 text-sm [&_a]:font-semibold [&_strong]:font-semibold [&>svg]:absolute [&>svg]:left-4 [&>svg]:top-3.5 [&>svg]:size-4 [&>svg~*]:pl-7",
+  "relative w-full rounded-2xl border px-4 py-3 text-sm [&_a]:font-semibold [&_strong]:font-semibold [&>svg]:absolute [&>svg]:left-4 [&>svg]:top-3.5 [&>svg]:size-4 [&>svg~*]:pl-7",
   {
     variants: {
       variant: {
         default: "border-primary/25 bg-primary/5 text-foreground [&>svg]:text-primary",
-        info: "border-info/35 bg-info/[0.07] text-[#cfeaff] [&>svg]:text-info",
-        success: "border-win/40 bg-win/[0.08] text-[#c9f7dc] [&>svg]:text-win",
-        destructive: "border-destructive/45 bg-destructive/[0.08] text-[#ffc9ce] [&>svg]:text-destructive",
+        info: "border-info/35 bg-info/[0.07] text-chalk [&>svg]:text-info",
+        success: "border-win/40 bg-win/[0.08] text-chalk [&>svg]:text-win",
+        destructive: "border-destructive/45 bg-destructive/[0.08] text-[#ffd6de] [&>svg]:text-destructive",
       },
     },
     defaultVariants: {

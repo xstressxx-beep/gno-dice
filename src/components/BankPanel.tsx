@@ -1,13 +1,13 @@
+"use client";
+
 import type { ReactNode } from "react";
-import { Coins, Landmark, PauseCircle, ScrollText } from "lucide-react";
+import { PauseCircle } from "lucide-react";
 import { config, GAME } from "@/lib/config";
 import { formatGnot } from "@/lib/format";
 import type { GameInfo } from "@/lib/gno";
 import type { ContractStatus } from "@/hooks/useGnodice";
 import { Alert } from "@/components/ui/alert";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { cn } from "@/lib/utils";
 import { AnimatedNumber } from "./AnimatedNumber";
 
 type Props = {
@@ -16,124 +16,81 @@ type Props = {
 };
 
 const STATUS_TEXT: Record<ContractStatus, string> = {
-  loading: "Chargement…",
+  loading: "",
   live: "",
-  absent: "Contrat pas encore déployé.",
-  inert: "Contrat en cours d’activation…",
-  unreachable: "Réseau injoignable pour le moment.",
+  absent: "La banque s’ouvrira quand le contrat sera déployé.",
+  inert: "Le contrat est en cours d’activation.",
+  unreachable: "Le réseau ne répond pas pour le moment.",
 };
 
 const gnot = (n: number) => formatGnot(n);
 
-/** Colonne de droite : la banque du casino et les règles. */
+/** La banque du casino : ce qu'elle peut payer et ce qu'elle a déjà payé. */
 export function BankPanel({ info, status }: Props) {
   const contractUrl = `${config.gnowebUrl}/${config.realmPath.replace(/^gno\.land\//, "")}`;
 
   return (
-    <aside className="flex flex-col gap-5 lg:gap-6">
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Landmark className="size-4" /> Banque du casino
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="flex flex-col gap-4">
-          {!info ? (
-            status === "loading" ? (
-              <div className="flex flex-col gap-3" aria-label="Chargement de la banque">
-                <Skeleton className="h-20 w-full" />
-                <div className="grid grid-cols-2 gap-3">
-                  <Skeleton className="h-14" />
-                  <Skeleton className="h-14" />
-                </div>
-              </div>
-            ) : (
-              <p className="text-sm text-muted-foreground">{STATUS_TEXT[status]}</p>
-            )
-          ) : (
-            <>
-              {/* Le coffre : solde qui défile jusqu'à sa valeur au chargement */}
-              <div className="relative overflow-hidden rounded-md border border-primary/25 bg-gradient-to-b from-primary/10 to-black/40 px-4 py-4 text-center">
-                <Coins aria-hidden className="absolute -bottom-5 -right-3 size-24 -rotate-12 text-primary/[0.07]" />
-                <p className="text-[0.68rem] font-semibold uppercase tracking-[0.22em] text-muted-foreground">Solde de la banque</p>
-                <p className="mt-1 font-display text-3xl font-extrabold sm:text-4xl">
-                  <AnimatedNumber value={info.bankroll} from={0} speed="slow" format={gnot} className="gold-text tabular-nums" />
-                  <span className="ml-2 text-base text-primary">GNOT</span>
-                </p>
-              </div>
-              <dl className="grid grid-cols-2 gap-3">
-                <Stat label="Mise max acceptée">
-                  <AnimatedNumber value={info.maxCoverableBet} format={gnot} /> GNOT
-                </Stat>
-                <Stat label="Parties jouées">
-                  <AnimatedNumber value={info.totalGames} from={0} speed="slow" />{" "}
-                  <span className="text-xs font-medium text-muted-foreground">({info.totalWins} gagnées)</span>
-                </Stat>
-                <Stat label="Payé aux joueurs" className="col-span-2">
-                  <AnimatedNumber value={info.totalPaid} from={0} speed="slow" format={gnot} className="text-win" /> GNOT
-                </Stat>
-              </dl>
-            </>
-          )}
-          {info?.paused && (
-            <Alert variant="info">
-              <PauseCircle />
-              <p>Le jeu est en pause.</p>
-            </Alert>
-          )}
-        </CardContent>
-      </Card>
+    <section aria-labelledby="bank-title" className="flex flex-col">
+      <h2 id="bank-title" className="display-soft text-[clamp(2rem,4vw,3rem)] leading-none tracking-[-0.02em] text-chalk">
+        La banque
+      </h2>
+      <p className="mt-4 max-w-[42ch] text-haze">
+        Tout ce que le casino peut payer. Une mise n’est acceptée que si la banque peut couvrir {GAME.multiplier} fois son montant.
+      </p>
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <ScrollText className="size-4" /> Règles
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <ol className="flex flex-col gap-3">
-            <Rule n={1}>Choisis un chiffre de 1 à 6.</Rule>
-            <Rule n={2}>
-              Mise entre {GAME.minBetGnot} et {GAME.maxBetGnot} GNOT.
-            </Rule>
-            <Rule n={3}>
-              Si le dé tombe sur ton chiffre, tu gagnes <strong className="gold-text">{GAME.multiplier}× ta mise</strong>.
-            </Rule>
-            <Rule n={4}>Un lancer toutes les 10 minutes par joueur.</Rule>
-          </ol>
-          <p className="mt-4 text-sm text-muted-foreground">
-            Tout se passe sur la blockchain : le contrat reçoit ta mise, lance le dé et te paie automatiquement.
-            {status === "live" && (
-              <>
-                {" "}
-                <a href={contractUrl} target="_blank" rel="noreferrer">
-                  Voir le contrat
-                </a>
-              </>
-            )}
+      {!info ? (
+        status === "loading" ? (
+          <div className="mt-8 flex flex-col gap-4" aria-label="Chargement de la banque">
+            <Skeleton className="h-16 w-3/4" />
+            <Skeleton className="h-12 w-full" />
+          </div>
+        ) : (
+          <p className="mt-8 text-haze">{STATUS_TEXT[status]}</p>
+        )
+      ) : (
+        <>
+          <p className="mt-8 flex items-baseline gap-3">
+            <AnimatedNumber value={info.bankroll} from={0} speed="slow" format={gnot} className="display-soft text-[clamp(3rem,7vw,5.5rem)] leading-none text-chalk" />
+            <span className="text-lg text-haze">GNOT</span>
           </p>
-        </CardContent>
-      </Card>
-    </aside>
+          <dl className="mt-8 grid grid-cols-2 border-t border-border sm:grid-cols-3">
+            <Stat label="Mise max acceptée">
+              <AnimatedNumber value={info.maxCoverableBet} format={gnot} /> GNOT
+            </Stat>
+            <Stat label={`Parties (${info.totalWins} gagnées)`}>
+              <AnimatedNumber value={info.totalGames} from={0} speed="slow" />
+            </Stat>
+            <Stat label="Payé aux joueurs">
+              <AnimatedNumber value={info.totalPaid} from={0} speed="slow" format={gnot} /> GNOT
+            </Stat>
+          </dl>
+        </>
+      )}
+
+      {info?.paused && (
+        <Alert variant="info" className="mt-6">
+          <PauseCircle />
+          <p>Le jeu est en pause.</p>
+        </Alert>
+      )}
+
+      {status === "live" && (
+        <p className="mt-8 text-sm text-haze">
+          Mises, tirages et paiements sont écrits dans le contrat, lisible par tous.{" "}
+          <a href={contractUrl} target="_blank" rel="noreferrer">
+            Lire le contrat
+          </a>
+        </p>
+      )}
+    </section>
   );
 }
 
-function Stat({ label, children, className }: { label: string; children: ReactNode; className?: string }) {
+function Stat({ label, children }: { label: string; children: ReactNode }) {
   return (
-    <div className={cn("rounded-md border border-primary/10 bg-black/35 px-3 py-2.5", className)}>
-      <dt className="text-[0.65rem] font-semibold uppercase tracking-[0.14em] text-muted-foreground">{label}</dt>
-      <dd className="mt-0.5 text-lg font-extrabold tabular-nums">{children}</dd>
+    <div className="border-b border-border py-4 pr-4 sm:border-b-0 [&:not(:first-child)]:sm:border-l [&:not(:first-child)]:sm:pl-4">
+      <dt className="text-sm text-haze">{label}</dt>
+      <dd className="mt-1 text-xl font-medium tabular-nums text-chalk">{children}</dd>
     </div>
-  );
-}
-
-function Rule({ n, children }: { n: number; children: ReactNode }) {
-  return (
-    <li className="flex items-start gap-3 text-sm">
-      <span className="grid size-6 shrink-0 place-items-center rounded-full border border-primary/50 bg-primary/10 font-display text-xs font-bold text-primary">
-        {n}
-      </span>
-      <span className="pt-0.5">{children}</span>
-    </li>
   );
 }

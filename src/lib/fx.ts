@@ -3,11 +3,12 @@
 // Petits effets visuels déclenchés par les actions du joueur (GSAP).
 // Tout est dessiné sur un calque fixe au-dessus de la page, créé à la demande,
 // et chaque particule se supprime toute seule à la fin de son animation.
-// - sparkBurst : gerbe d'étincelles à un point de l'écran (clic, choix d'un chiffre…)
+// - sparkBurst : gerbe d'éclats à un point de l'écran (clic, choix d'un chiffre…)
 // - sparkBurstFrom : idem, depuis le centre d'un élément
 // - haptic : vibration du téléphone (si l'appareil le permet)
 
 import gsap from "gsap";
+import { isReducedMotion } from "./motion";
 
 let layer: HTMLDivElement | null = null;
 
@@ -22,26 +23,25 @@ function getLayer(): HTMLDivElement | null {
   return layer;
 }
 
-export function prefersReducedMotion(): boolean {
-  return typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-}
+/** true si les animations sont réduites (réglage de l'appareil ou choix du joueur). */
+export const prefersReducedMotion = isReducedMotion;
 
 type BurstOptions = {
-  /** Nombre d'étincelles. */
+  /** Nombre d'éclats. */
   count?: number;
-  /** Palette (or par défaut). */
+  /** Palette (craie et pervenche par défaut). */
   colors?: string[];
-  /** Vitesse de projection (px). */
+  /** Distance de projection (px). */
   spread?: number;
-  /** Ajoute un anneau lumineux qui s'élargit. */
+  /** Ajoute un anneau qui s'élargit. */
   ring?: boolean;
 };
 
-const GOLD = ["#fff7d6", "#fde7a1", "#f5c542", "#e0aa24"];
-export const RED = ["#ffd1d6", "#ff6b7a", "#ef3346", "#c8102e"];
+const CHALK = ["#FBF9F4", "#EFEADF", "#9DB0FF", "#3A54E6"];
+export const RUBY = ["#FFD6DE", "#FF5470", "#E3173E", "#FBF9F4"];
 
-/** Gerbe d'étincelles au point (x, y) de l'écran. */
-export function sparkBurst(x: number, y: number, { count = 14, colors = GOLD, spread = 70, ring = true }: BurstOptions = {}) {
+/** Gerbe d'éclats au point (x, y) de l'écran : de petits traits qui filent, pas des points. */
+export function sparkBurst(x: number, y: number, { count = 12, colors = CHALK, spread = 60, ring = true }: BurstOptions = {}) {
   const root = getLayer();
   if (!root || prefersReducedMotion()) return;
   const r = gsap.utils.random;
@@ -52,44 +52,42 @@ export function sparkBurst(x: number, y: number, { count = 14, colors = GOLD, sp
       position: "absolute",
       left: `${x}px`,
       top: `${y}px`,
-      width: "18px",
-      height: "18px",
+      width: "16px",
+      height: "16px",
       borderRadius: "50%",
-      border: `2px solid ${colors[1]}`,
-      boxShadow: `0 0 14px ${colors[2]}`,
+      border: `1.5px solid ${colors[1]}`,
       transform: "translate(-50%, -50%)",
     });
     root.appendChild(el);
-    gsap.fromTo(el, { scale: 0.3, opacity: 0.9 }, { scale: 4, opacity: 0, duration: 0.6, ease: "expo.out", onComplete: () => el.remove() });
+    gsap.fromTo(el, { scale: 0.3, opacity: 0.9 }, { scale: 4.5, opacity: 0, duration: 0.65, ease: "expo.out", onComplete: () => el.remove() });
   }
 
   for (let i = 0; i < count; i++) {
     const el = document.createElement("div");
-    const size = r(2, 5);
+    const angle = (i / count) * 360 + r(-12, 12);
     const color = colors[i % colors.length];
     Object.assign(el.style, {
       position: "absolute",
       left: `${x}px`,
       top: `${y}px`,
-      width: `${size}px`,
-      height: `${size}px`,
-      borderRadius: "50%",
+      width: `${r(8, 14)}px`,
+      height: "2px",
+      borderRadius: "2px",
       background: color,
-      boxShadow: `0 0 8px 1px ${color}`,
+      transformOrigin: "0 50%",
     });
     root.appendChild(el);
-    const angle = (i / count) * Math.PI * 2 + r(-0.3, 0.3);
-    const dist = r(spread * 0.45, spread);
+    const dist = r(spread * 0.5, spread);
+    const rad = (angle * Math.PI) / 180;
     gsap.fromTo(
       el,
-      { x: 0, y: 0, scale: 1, opacity: 1 },
+      { x: 0, y: 0, rotation: angle, scaleX: 1, opacity: 1 },
       {
-        x: Math.cos(angle) * dist,
-        // légère gravité : les étincelles retombent un peu
-        y: Math.sin(angle) * dist + r(10, 30),
-        scale: 0,
+        x: Math.cos(rad) * dist,
+        y: Math.sin(rad) * dist,
+        scaleX: 0,
         opacity: 0,
-        duration: r(0.5, 0.9),
+        duration: r(0.45, 0.75),
         ease: "power3.out",
         onComplete: () => el.remove(),
       },
@@ -97,7 +95,7 @@ export function sparkBurst(x: number, y: number, { count = 14, colors = GOLD, sp
   }
 }
 
-/** Gerbe d'étincelles depuis le centre d'un élément. */
+/** Gerbe d'éclats depuis le centre d'un élément. */
 export function sparkBurstFrom(el: Element | null | undefined, options?: BurstOptions) {
   if (!el) return;
   const box = el.getBoundingClientRect();

@@ -38,7 +38,7 @@ export function AdminPanel({ files }: { files: ContractFile[] }) {
   return (
     <div className="mx-auto flex max-w-[820px] flex-col gap-6 pt-9">
       <section>
-        <h1 className="gold-text mb-1.5 font-display text-4xl font-extrabold">Administration</h1>
+        <h1 className="text-foreground mb-1.5 font-display text-4xl font-extrabold">Administration</h1>
         <p className="text-muted-foreground">
           Déploie le contrat GNO-DICE sur {config.chainName}, puis gère la banque du jeu. Chaque action est une transaction que tu
           valides dans Adena.
@@ -259,7 +259,7 @@ function DeploySection({ address, files, onLive }: { address: string; files: Con
             Variables) puis redéploie le site :
           </p>
           <p className="mt-2 flex flex-wrap items-center gap-2.5">
-            <code className="rounded bg-black/40 px-2 py-1 font-mono [overflow-wrap:anywhere]">NEXT_PUBLIC_GNODICE_REALM={path}</code>
+            <code className="rounded bg-lapis-950/40 px-2 py-1 font-mono [overflow-wrap:anywhere]">NEXT_PUBLIC_GNODICE_REALM={path}</code>
             <Button variant="outline" size="sm" onClick={copyEnv}>
               {copied ? "Copié ✔" : "Copier le chemin"}
             </Button>
@@ -350,7 +350,7 @@ function ManageSection({ address, path }: { address: string; path: string }) {
         <>
           <KeyValues>
             <dt>Solde de la banque</dt>
-            <dd className="gold-text font-bold">{formatGnot(info.bankroll)} GNOT</dd>
+            <dd className="text-foreground font-bold">{formatGnot(info.bankroll)} GNOT</dd>
             <dt>Mise max acceptée</dt>
             <dd>{formatGnot(info.maxCoverableBet)} GNOT</dd>
             <dt>Propriétaire</dt>

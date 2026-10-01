@@ -1,8 +1,8 @@
 /* ==========================================================================
-   GNO-DICE — styles globaux (thème casino de luxe : noir profond + or)
-   Tailwind CSS v3 génère les classes utilitaires ; les couleurs du thème
-   shadcn/ui sont définies ici sous forme de variables (format HSL « teinte
-   saturation luminosité », utilisé par tailwind.config.ts).
+   GNO-DICE — styles globaux, thème « Lapis & Acétate »
+   Nuit lapis (fond), feutre outremer (la table), acétate rubis (le dé),
+   craie (le texte). Les couleurs shadcn/ui sont des variables HSL utilisées
+   par tailwind.config.ts.
    ========================================================================== */
 
 @tailwind base;
@@ -11,42 +11,42 @@
 
 @layer base {
   :root {
-    /* Fond et surfaces */
-    --background: 0 0% 1.5%;
-    --foreground: 43 45% 92%;
-    --card: 30 14% 4.5%;
-    --card-foreground: 43 45% 92%;
-    --popover: 30 14% 6%;
-    --popover-foreground: 43 45% 92%;
+    /* Fond et surfaces : nuit lapis */
+    --background: 231 72% 10%;
+    --foreground: 41 37% 91%;
+    --card: 231 62% 13%;
+    --card-foreground: 41 37% 91%;
+    --popover: 231 58% 14%;
+    --popover-foreground: 41 37% 91%;
 
-    /* Or : couleur principale */
-    --primary: 44 90% 61%;
-    --primary-foreground: 35 100% 9%;
+    /* Accent discret : la craie */
+    --primary: 41 37% 91%;
+    --primary-foreground: 231 72% 10%;
 
-    --secondary: 30 8% 11%;
-    --secondary-foreground: 43 45% 92%;
-    --muted: 30 8% 10%;
-    --muted-foreground: 40 12% 63%;
-    --accent: 43 45% 14%;
-    --accent-foreground: 44 95% 72%;
+    --secondary: 231 45% 18%;
+    --secondary-foreground: 41 37% 91%;
+    --muted: 231 42% 16%;
+    --muted-foreground: 231 27% 70%;
+    --accent: 231 48% 21%;
+    --accent-foreground: 41 37% 95%;
 
-    /* Rouge casino (bouton JOUER, pertes) */
-    --destructive: 354 80% 58%;
+    /* Rubis : le dé, l'action « Lancer », les erreurs */
+    --destructive: 348 82% 58%;
     --destructive-foreground: 0 0% 100%;
-    --casino: 352 84% 46%;
-    --casino-deep: 350 88% 24%;
+    --casino: 348 82% 49%;
+    --casino-deep: 348 88% 33%;
     --casino-foreground: 0 0% 100%;
 
-    /* Messages */
-    --win: 145 66% 53%;
-    --info: 204 100% 71%;
+    /* Signal pervenche : états positifs (connecté, gagné) */
+    --win: 228 100% 81%;
+    --info: 228 100% 81%;
 
-    /* Bordures et focus */
-    --border: 40 30% 17%;
-    --input: 40 30% 20%;
-    --ring: 44 90% 61%;
+    /* Filets et focus */
+    --border: 231 40% 22%;
+    --input: 231 40% 27%;
+    --ring: 228 100% 81%;
 
-    --radius: 1rem;
+    --radius: 1.125rem;
 
     color-scheme: dark;
   }
@@ -63,21 +63,21 @@
 
   body {
     @apply min-h-screen bg-background font-sans text-foreground antialiased;
-    /* Reflets dorés et une touche de rouge sur le fond noir */
+    /* Lumière du projecteur sur le tapis, en haut à droite (là où roule le dé) */
     background-image:
-      radial-gradient(ellipse 80% 55% at 50% -12%, rgba(245, 197, 66, 0.16) 0%, rgba(245, 197, 66, 0.04) 45%, transparent 72%),
-      radial-gradient(ellipse 45% 40% at 100% 85%, rgba(200, 16, 46, 0.13) 0%, transparent 70%),
-      radial-gradient(ellipse 45% 40% at 0% 55%, rgba(245, 197, 66, 0.07) 0%, transparent 70%);
+      radial-gradient(ellipse 70% 60% at 78% 8%, rgba(22, 48, 184, 0.55) 0%, rgba(22, 48, 184, 0.12) 45%, transparent 75%),
+      radial-gradient(ellipse 60% 45% at 0% 100%, rgba(27, 39, 110, 0.6) 0%, transparent 70%);
     background-attachment: fixed;
+    font-feature-settings: "ss01", "cv11";
   }
 
-  /* :where() = priorité minimale : les classes Tailwind (ex. boutons-liens) gagnent toujours */
+  /* :where() = priorité minimale : les classes Tailwind gagnent toujours */
   :where(a) {
-    @apply text-primary underline-offset-4 transition-colors;
+    @apply text-signal underline decoration-signal/40 underline-offset-4 transition-colors;
   }
 
   :where(a):hover {
-    @apply text-gold-200 underline;
+    @apply text-chalk decoration-chalk;
   }
 
   :focus-visible {
@@ -85,51 +85,30 @@
   }
 
   ::selection {
-    @apply bg-primary/30 text-foreground;
+    @apply bg-ruby text-white;
+  }
+
+  h1,
+  h2,
+  h3 {
+    text-wrap: balance;
   }
 }
 
 @layer components {
-  /* Largeur maximale du contenu, centré, avec des marges sur les côtés */
+  /* Largeur maximale du contenu, avec des marges sur les côtés */
   .page-container {
-    @apply mx-auto w-full max-w-[1180px] px-4 sm:px-6;
+    @apply mx-auto w-full max-w-[1280px] px-4 sm:px-8;
   }
 
-  /* Texte doré avec un léger reflet qui se déplace */
-  .gold-text {
-    @apply bg-gold-sheen bg-clip-text text-transparent;
-    background-size: 200% auto;
+  /* Fraunces « à la casino » : formes douces et un peu bancales */
+  .display-soft {
+    font-family: var(--font-fraunces), Georgia, serif;
+    font-variation-settings:
+      "SOFT" 100,
+      "WONK" 1,
+      "opsz" 144;
   }
-
-  .gold-text-animated {
-    @apply gold-text animate-shimmer;
-  }
-
-  /* Filet doré horizontal (séparateur art déco) */
-  .gold-rule {
-    @apply h-px w-full bg-gradient-to-r from-transparent via-primary/60 to-transparent;
-  }
-}
-
-/* --- Or « chromé » façon métal poli (le ×5 du grand titre) --- */
-.chrome-gold {
-  background-image: linear-gradient(
-    100deg,
-    #8a6408 0%,
-    #f5c542 18%,
-    #fffaeb 32%,
-    #f9d56e 44%,
-    #b8860b 58%,
-    #fde7a1 74%,
-    #e0aa24 88%,
-    #8a6408 100%
-  );
-  background-size: 220% 100%;
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
-  filter: drop-shadow(0 0 28px rgba(245, 197, 66, 0.35));
-  animation: shimmer 7s linear infinite;
 }
 
 /* --- Curseur personnalisé : on masque celui du système (souris uniquement) --- */
@@ -143,15 +122,15 @@
   }
 }
 
-/* --- Projecteur : un halo doré suit la souris sur les cartes (positions mises
-       à jour par CustomCursor dans --mx / --my) --- */
+/* --- Projecteur : un halo suit la souris sur les panneaux (--mx / --my
+       mis à jour par CustomCursor) --- */
 [data-spotlight]::after {
   content: "";
   position: absolute;
   inset: 0;
   border-radius: inherit;
   pointer-events: none;
-  background: radial-gradient(420px circle at var(--mx, 50%) var(--my, -30%), rgba(245, 197, 66, 0.07), transparent 45%);
+  background: radial-gradient(380px circle at var(--mx, 50%) var(--my, -30%), rgba(157, 176, 255, 0.07), transparent 50%);
   opacity: 0;
   transition: opacity 0.4s ease;
 }
@@ -159,30 +138,37 @@
   opacity: 1;
 }
 
-/* --- Grain de film très léger sur tout le site (rendu « premium ») --- */
+/* --- Grain très léger sur tout le site (texture du feutre) --- */
 .film-grain {
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
-  opacity: 0.045;
-  mix-blend-mode: overlay;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  opacity: 0.06;
+  mix-blend-mode: soft-light;
 }
 
-/* --- Intro : masquée si déjà vue, ou si on préfère moins d'animations --- */
-html.intro-seen .preloader {
+/* --- Défilement fluide (Lenis) --- */
+html.lenis,
+html.lenis body {
+  height: auto;
+}
+.lenis.lenis-smooth {
+  scroll-behavior: auto !important;
+}
+.lenis.lenis-stopped {
+  overflow: hidden;
+}
+
+/* --- Intro : masquée si déjà vue, ou si les animations sont réduites --- */
+html.intro-seen .preloader,
+html.reduce-motion .preloader {
   display: none;
 }
-@media (prefers-reduced-motion: reduce) {
-  .preloader {
-    display: none;
-  }
-}
 
-/* --- Accessibilité : moins d'animations si l'utilisateur le demande --- */
-@media (prefers-reduced-motion: reduce) {
-  *,
-  *::before,
-  *::after {
-    animation-duration: 0.01ms !important;
-    animation-iteration-count: 1 !important;
-    transition-duration: 0.01ms !important;
-  }
+/* --- Accessibilité : animations réduites (réglage de l'appareil par défaut,
+       ou choix du joueur avec le bouton de l'en-tête — voir src/lib/motion.ts) --- */
+html.reduce-motion *,
+html.reduce-motion *::before,
+html.reduce-motion *::after {
+  animation-duration: 0.01ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.01ms !important;
 }

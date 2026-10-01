@@ -1,26 +1,30 @@
 import type { Metadata, Viewport } from "next";
 import type { ReactNode } from "react";
-import { Cinzel, Inter } from "next/font/google";
+import { Fraunces, Instrument_Sans } from "next/font/google";
 import { AppProviders } from "@/components/AppProviders";
 import { CustomCursor } from "@/components/CustomCursor";
 import { Footer } from "@/components/Footer";
 import { Header } from "@/components/Header";
-import { LuxuryBackdrop } from "@/components/LuxuryBackdrop";
 import { INTRO_KEY, Preloader } from "@/components/Preloader";
+import { SmoothScroll } from "@/components/SmoothScroll";
+import { MOTION_SCRIPT } from "@/lib/motion";
 import "./globals.css";
 
-// Polices : Cinzel (logo et touches casino) et Inter (titres et texte).
-const cinzel = Cinzel({ variable: "--font-cinzel", subsets: ["latin"], weight: ["600", "700", "800"] });
-const inter = Inter({ variable: "--font-inter", subsets: ["latin"] });
+// Polices :
+// - Fraunces : serif variable aux formes douces et « bancales » (axes SOFT et WONK),
+//   comme les enseignes de casino peintes à la main ; sa graisse change au défilement
+// - Instrument Sans : sans-serif nette et étroite pour l'interface et les nombres
+const fraunces = Fraunces({ variable: "--font-fraunces", subsets: ["latin"], axes: ["SOFT", "WONK", "opsz"], style: ["normal", "italic"] });
+const instrument = Instrument_Sans({ variable: "--font-instrument", subsets: ["latin"], axes: ["wdth"] });
 
 export const metadata: Metadata = {
-  title: "GNO-DICE — le jeu de dés décentralisé sur Gno.land",
+  title: "gnodice — six faces, une seule est la tienne",
   description:
-    "Choisis un chiffre de 1 à 6, mise entre 1 et 10 GNOT et gagne 5 fois ta mise si le dé tombe sur ton chiffre. Un lancer toutes les 10 minutes, 100 % on-chain.",
+    "Choisis un chiffre de 1 à 6, mise entre 1 et 10 GNOT et gagne 5 fois ta mise si le dé tombe sur ton chiffre. Un lancer toutes les 10 minutes, sur Gno.land.",
 };
 
 export const viewport: Viewport = {
-  themeColor: "#040404",
+  themeColor: "#070C2B",
 };
 
 // Exécuté avant l'affichage : si l'intro a déjà été vue pendant cette visite,
@@ -30,13 +34,15 @@ const introScript = `try{if(sessionStorage.getItem("${INTRO_KEY}"))document.docu
 export default function RootLayout({ children }: Readonly<{ children: ReactNode }>) {
   return (
     // suppressHydrationWarning : la classe « intro-seen » est ajoutée par le script ci-dessous
-    <html lang="fr" className={`dark ${cinzel.variable} ${inter.variable}`} suppressHydrationWarning>
+    <html lang="fr" className={`dark ${fraunces.variable} ${instrument.variable}`} suppressHydrationWarning>
       <head>
-        <script dangerouslySetInnerHTML={{ __html: introScript }} />
+        <script dangerouslySetInnerHTML={{ __html: MOTION_SCRIPT + introScript }} />
       </head>
       <body className="flex min-h-screen flex-col">
         <Preloader />
-        <LuxuryBackdrop />
+        {/* Grain du feutre, par-dessus tout le fond */}
+        <div aria-hidden className="film-grain pointer-events-none fixed inset-0 -z-10" />
+        <SmoothScroll />
         <AppProviders>
           <Header />
           <div className="flex-1">{children}</div>

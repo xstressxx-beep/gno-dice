@@ -8,7 +8,7 @@ function Skeleton({ className, ...props }: React.ComponentProps<"div">) {
     <div
       data-slot="skeleton"
       className={cn(
-        "animate-skeleton-wave rounded-md bg-[linear-gradient(90deg,rgba(255,255,255,0.03),rgba(245,197,66,0.08),rgba(255,255,255,0.03))] bg-[length:200%_100%]",
+        "animate-skeleton-wave rounded-md bg-[linear-gradient(90deg,rgba(255,255,255,0.03),rgba(157,176,255,0.08),rgba(255,255,255,0.03))] bg-[length:200%_100%]",
         className,
       )}
       {...props}

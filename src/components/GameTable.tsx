@@ -1,28 +1,36 @@
 "use client";
 
+// La table de jeu, qui est aussi le haut de la page :
+// titre, choix du chiffre et de la mise, bouton « Lancer », et le dé 3D.
+// - le titre change de graisse en défilant (police variable Fraunces)
+// - raccourcis clavier : 1 à 6 pour le chiffre, + / − pour la mise, Entrée pour lancer
+// - chaque rebond du dé fait vibrer la table ; gagné / perdu : flash des bords et vibration
+
 import { useCallback, useEffect, useRef, useState, type MouseEvent, type ReactNode } from "react";
-import { motion, useAnimationControls } from "framer-motion";
+import { AnimatePresence, motion, useAnimationControls, useScroll, useTransform } from "framer-motion";
 import { Info, Timer } from "lucide-react";
 import { ADENA_DOWNLOAD_URL, sendTransaction } from "@/lib/adena";
 import { config, FIRST_GAME_DEPOSIT_UGNOT, GAME, GAS, NEXT_GAME_DEPOSIT_UGNOT } from "@/lib/config";
+import { haptic, RUBY, sparkBurstFrom } from "@/lib/fx";
 import { formatCountdown, formatGnot, UGNOT_PER_GNOT } from "@/lib/format";
-import { haptic, RED, sparkBurstFrom } from "@/lib/fx";
 import { estimateFee, type GameInfo, type PlayerInfo } from "@/lib/gno";
 import { parsePlayResult, playMessage } from "@/lib/gnodice";
 import type { ContractStatus } from "@/hooks/useGnodice";
+import { useIntroDone } from "@/hooks/useIntroDone";
 import { useNow } from "@/hooks/useNow";
 import { Alert } from "@/components/ui/alert";
-import { Card } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { AnimatedNumber } from "./AnimatedNumber";
 import { BetControl } from "./BetControl";
-import { DiceStage, type Outcome } from "./DiceStage";
+import { DieStage } from "./DieStage";
+import type { SceneFx } from "./DieScene";
 import { NumberPicker } from "./NumberPicker";
 import { PlayButton, type PlayAction } from "./PlayButton";
 import { ScreenFlash, type Flash } from "./ScreenFlash";
-import { WinExplosion } from "./WinExplosion";
 import { useWallet } from "./WalletProvider";
+
+export type Outcome = { id: number; guess: number; bet: number; roll: number; won: boolean; payout: number };
 
 type Props = {
   info: GameInfo | null;
@@ -35,33 +43,44 @@ type Props = {
 const DEFAULT_FEE_UGNOT = 25_000;
 // Si le dé n'a pas signalé qu'il s'est posé (onglet en arrière-plan…), on
 // affiche quand même le résultat au bout de ce délai.
-const REVEAL_FALLBACK_MS = 2800;
+const REVEAL_FALLBACK_MS = 4500;
+const EASE = [0.16, 1, 0.3, 1] as const;
 
 const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
-/** La table de jeu : scène du dé, choix du chiffre, mise, bouton JOUER et résultat. */
+const TITLE = ["Six faces.", "Une seule", "est la tienne."];
+
 export function GameTable({ info, player, status, clockOffset, refresh }: Props) {
   const wallet = useWallet();
   const now = useNow();
+  const introDone = useIntroDone();
 
   const [guess, setGuess] = useState<number | null>(null);
   const [bet, setBet] = useState(GAME.minBetGnot);
   const [pending, setPending] = useState(false);
   const [outcome, setOutcome] = useState<Outcome | null>(null);
   const [revealed, setRevealed] = useState(false);
-  const [winBurst, setWinBurst] = useState(0);
   const [txError, setTxError] = useState<string | null>(null);
   const [fee, setFee] = useState(DEFAULT_FEE_UGNOT);
   const [flash, setFlash] = useState<Flash | null>(null);
-  // Secousse de la table (atterrissage du dé, victoire, défaite)
+  const [sceneFx, setSceneFx] = useState<SceneFx>(null);
+  // La table tremble aux rebonds du dé
   const shake = useAnimationControls();
+  const playRef = useRef<HTMLDivElement>(null);
 
-  const dieRef = useRef<HTMLDivElement>(null);
   // Le lancer en cours et celui déjà dévoilé (pour ne fêter une victoire qu'une fois).
   const outcomeRef = useRef<Outcome | null>(null);
   const revealedRef = useRef<Outcome | null>(null);
 
-  // Frais réseau estimés pour un lancer (lus une fois au chargement).
+  // Titre : la graisse et la douceur de la police suivent le défilement
+  const sectionRef = useRef<HTMLElement>(null);
+  const { scrollYProgress } = useScroll({ target: sectionRef, offset: ["start start", "end start"] });
+  const titleAxes = useTransform(scrollYProgress, [0, 0.6], [0, 1]);
+  const fontVariationSettings = useTransform(
+    titleAxes,
+    (p) => `"wght" ${Math.round(780 - p * 480)}, "SOFT" ${Math.round(100 - p * 100)}, "WONK" 1, "opsz" 144`,
+  );
+
   useEffect(() => {
     estimateFee(GAS.play).then(setFee).catch(() => undefined);
   }, []);
@@ -91,30 +110,17 @@ export function GameTable({ info, player, status, clockOffset, refresh }: Props)
     if (!current || revealedRef.current === current) return;
     revealedRef.current = current;
     setRevealed(true);
-    setFlash({ kind: current.won ? "win" : "lose", id: Date.now() });
-    if (current.won) {
-      setWinBurst((n) => n + 1);
-      shake.start({ scale: [1, 1.015, 1], transition: { duration: 0.5, ease: "easeOut" } });
-    } else {
-      shake.start({ x: [0, -9, 8, -6, 4, 0], transition: { duration: 0.45 } });
-    }
-  }, [shake]);
+    const kind = current.won ? "win" : "lose";
+    setFlash({ kind, id: current.id });
+    setSceneFx({ kind, id: current.id });
+  }, []);
 
-  // Chaque rebond du dé fait vibrer la table, d'autant plus fort que le choc est violent.
   const impact = useCallback(
     (strength: number) => {
-      shake.start({ y: [0, 3 * strength, 0], transition: { duration: 0.18, ease: "easeOut" } });
-      haptic(Math.round(10 + 20 * strength));
+      shake.start({ y: [0, 4 * strength, 0], transition: { duration: 0.2, ease: "easeOut" } });
     },
     [shake],
   );
-
-  /** Clic sur JOUER : étincelles rouges + vibration, puis le lancer. */
-  function launch(e?: MouseEvent<HTMLElement>) {
-    sparkBurstFrom(e?.currentTarget, { colors: RED, count: 18, spread: 110 });
-    haptic(20);
-    void play();
-  }
 
   async function play() {
     if (!wallet.address || guess === null) return;
@@ -139,7 +145,7 @@ export function GameTable({ info, player, status, clockOffset, refresh }: Props)
         else await wait(1500);
       }
       if (result) {
-        const next = { guess: chosen, bet, ...result };
+        const next = { id: Date.now(), guess: chosen, bet, ...result };
         outcomeRef.current = next;
         setOutcome(next);
         window.setTimeout(reveal, REVEAL_FALLBACK_MS);
@@ -160,69 +166,176 @@ export function GameTable({ info, player, status, clockOffset, refresh }: Props)
     }
   }
 
+  /** Clic sur « Lancer » : étincelles + vibration, puis le lancer. */
+  function launch(e?: MouseEvent<HTMLElement>) {
+    sparkBurstFrom(e?.currentTarget ?? playRef.current, { colors: RUBY, count: 18, spread: 110 });
+    haptic(20);
+    void play();
+  }
+
   // --- Bouton principal : son texte et son action dépendent de la situation ---
   let action: PlayAction;
   if (status === "absent") action = { label: "Contrat pas encore déployé", disabled: true };
   else if (status === "inert") action = { label: "Activation du contrat…", disabled: true };
-  else if (status === "loading") action = { label: "Chargement du jeu…", disabled: true, busy: true };
+  else if (status === "loading") action = { label: "Chargement du jeu", disabled: true, busy: true };
   else if (!info) action = { label: "Réseau Gno injoignable", disabled: true };
   else if (wallet.status === "no-extension") action = { label: "Installer Adena pour jouer", href: ADENA_DOWNLOAD_URL };
   else if (wallet.status !== "connected")
     action = { label: "Connecter Adena pour jouer", onClick: wallet.connect, disabled: wallet.status === "connecting" || wallet.status === "checking" };
   else if (wallet.wrongNetwork) action = { label: `Passer sur ${config.chainName}`, onClick: wallet.switchNetwork };
-  else if (pending) action = { label: "Le dé roule…", disabled: true, busy: true };
+  else if (pending) action = { label: "Le dé roule", disabled: true, busy: true };
   else if (info.paused) action = { label: "Jeu en pause", disabled: true };
   else if (cooldownLeft > 0) action = { label: `Prochain lancer dans ${formatCountdown(cooldownLeft)}`, disabled: true };
-  else if (guess === null) action = { label: "Choisis un chiffre", disabled: true };
+  else if (guess === null) action = { label: "Choisis d'abord un chiffre", disabled: true };
   else if (bet > maxCoverable)
     action = { label: maxCoverable >= minBet ? `Mise max possible : ${maxCoverable} GNOT` : "La banque est vide", disabled: true };
   else if (notEnoughFunds) action = { label: "Solde insuffisant", disabled: true };
-  else action = { label: `Jouer · ${bet} GNOT`, onClick: launch };
+  else action = { label: `Lancer pour ${bet} GNOT`, onClick: launch, primary: true };
+
+  // --- Raccourcis clavier ---
+  const keys = useRef({ action, pending, minBet, maxBet });
+  useEffect(() => {
+    keys.current = { action, pending, minBet, maxBet };
+  });
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.ctrlKey || e.metaKey || e.altKey) return;
+      const el = e.target as HTMLElement | null;
+      if (el?.closest("input, textarea, [contenteditable='true'], [role='slider'], [role='menu']")) return;
+      const k = keys.current;
+      if (k.pending) return;
+      if (/^[1-6]$/.test(e.key)) {
+        setGuess(Number(e.key));
+        haptic(8);
+      } else if (e.key === "+" || e.key === "=") {
+        setBet((b) => Math.min(k.maxBet, b + 1));
+      } else if (e.key === "-" || e.key === "_") {
+        setBet((b) => Math.max(k.minBet, b - 1));
+      } else if (e.key === "Enter" && (el === document.body || !el) && k.action.primary) {
+        e.preventDefault();
+        k.action.onClick?.();
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
+
+  // --- Texte sous le dé ---
+  let caption: ReactNode;
+  if (pending) {
+    caption = (
+      <motion.p key="pending" {...fade} className="max-w-sm text-[0.95rem] text-haze">
+        Signe dans Adena. Le dé tourne tant que la blockchain n&apos;a pas répondu.
+      </motion.p>
+    );
+  } else if (outcome && !revealed) {
+    caption = <motion.p key="landing" {...fade} className="h-6" />;
+  } else if (outcome?.won) {
+    caption = (
+      <motion.div key="win" {...fade} className="flex flex-col items-center">
+        <p className="display-soft text-[clamp(2.4rem,5vw,3.5rem)] leading-none text-chalk">
+          +<AnimatedNumber value={outcome.payout} from={0} speed="slow" format={(n) => formatGnot(n)} /> GNOT
+        </p>
+        <p className="mt-2 text-[0.95rem] text-haze">Le dé est tombé sur ton {outcome.roll}. Gagné.</p>
+      </motion.div>
+    );
+  } else if (outcome) {
+    caption = (
+      <motion.div key="lose" {...fade} className="flex flex-col items-center">
+        <p className="display-soft text-[clamp(2rem,4vw,2.75rem)] leading-none text-chalk/80">Tombé sur le {outcome.roll}.</p>
+        <p className="mt-2 text-[0.95rem] text-haze">Tu avais choisi le {outcome.guess}. Prochain lancer dans 10 minutes.</p>
+      </motion.div>
+    );
+  } else {
+    caption = (
+      <motion.p key="idle" {...fade} className="max-w-xs text-[0.95rem] text-haze">
+        <span className="hidden [@media(hover:hover)]:inline">Attrape le dé et lance-le pour un essai. Rien n&apos;est misé.</span>
+        <span className="[@media(hover:hover)]:hidden">Fais glisser le dé pour un essai. Rien n&apos;est misé.</span>
+      </motion.p>
+    );
+  }
 
   return (
-    <motion.div animate={shake}>
-    <Card className="overflow-hidden border-primary/30" aria-labelledby="table-title">
-      <h2 id="table-title" className="sr-only">
-        Table de jeu
-      </h2>
+    <section
+      ref={sectionRef}
+      aria-labelledby="table-title"
+      className="relative grid items-center gap-x-10 gap-y-6 pb-10 pt-6 [grid-template-areas:'head'_'stage'_'ctrl'] sm:pt-10 lg:min-h-[calc(100svh-72px)] lg:grid-cols-[minmax(0,1.05fr)_minmax(0,1fr)] lg:gap-y-10 lg:[grid-template-areas:'head_stage'_'ctrl_stage']"
+    >
+      {/* Titre */}
+      <div className="[grid-area:head] lg:self-end">
+        <motion.h1
+          id="table-title"
+          style={{ fontVariationSettings }}
+          className="font-display text-[clamp(3rem,7vw,6.25rem)] leading-[0.92] tracking-[-0.035em] text-chalk"
+        >
+          {TITLE.map((line, i) => (
+            <span key={line} className="block overflow-hidden pb-[0.08em]">
+              <motion.span
+                className="block"
+                initial={{ y: "105%" }}
+                animate={introDone ? { y: "0%" } : undefined}
+                transition={{ duration: 1.2, ease: EASE, delay: 0.1 + i * 0.09 }}
+              >
+                {line}
+              </motion.span>
+            </span>
+          ))}
+        </motion.h1>
+        <motion.p
+          initial={{ opacity: 0 }}
+          animate={introDone ? { opacity: 1 } : undefined}
+          transition={{ duration: 1, delay: 0.55 }}
+          className="mt-6 max-w-[46ch] text-[1.05rem] leading-relaxed text-haze sm:text-lg"
+        >
+          Choisis un chiffre, mise de {GAME.minBetGnot} à {GAME.maxBetGnot} GNOT et lance. Si le dé tombe sur ton chiffre, tu repars avec{" "}
+          {multiplier} fois ta mise. Tout se joue sur Gno.land, à la vue de tous.
+        </motion.p>
+      </div>
 
-      <DiceStage
-        pending={pending}
-        outcome={outcome}
-        revealed={revealed}
-        guess={guess}
-        multiplier={multiplier}
-        onLanded={reveal}
-        onImpact={impact}
-        dieRef={dieRef}
-      />
-      <WinExplosion burst={winBurst} originRef={dieRef} />
-      <ScreenFlash flash={flash} />
+      {/* Le dé */}
+      <motion.div
+        className="[grid-area:stage] lg:self-center"
+        initial={{ opacity: 0, scale: 0.94 }}
+        animate={introDone ? { opacity: 1, scale: 1 } : undefined}
+        transition={{ duration: 1.4, ease: EASE, delay: 0.2 }}
+      >
+        <motion.div animate={shake}>
+          <DieStage
+            face={outcome && !pending ? outcome.roll : (guess ?? 5)}
+            rolling={pending}
+            outcome={outcome}
+            fx={sceneFx}
+            allowToy={!pending && !(outcome && !revealed)}
+            onImpact={impact}
+            onLanded={reveal}
+            caption={<AnimatePresence mode="wait">{caption}</AnimatePresence>}
+          />
+        </motion.div>
+      </motion.div>
 
-      <div className="flex flex-col gap-6 p-5 sm:p-7">
-        {/* Étape 1 : le chiffre */}
-        <section className="flex flex-col gap-3" aria-labelledby="step-guess">
-          <StepLabel id="step-guess" n={1}>
-            Choisis ton chiffre
-          </StepLabel>
+      {/* Commandes */}
+      <motion.div
+        className="flex flex-col gap-7 [grid-area:ctrl] lg:self-start"
+        initial={{ opacity: 0, y: 16 }}
+        animate={introDone ? { opacity: 1, y: 0 } : undefined}
+        transition={{ duration: 1, ease: EASE, delay: 0.7 }}
+      >
+        <div className="flex flex-col gap-3">
+          <ControlLabel hint="1 à 6">Ton chiffre</ControlLabel>
           <NumberPicker value={guess} onChange={setGuess} disabled={pending} />
-        </section>
+        </div>
 
-        {/* Étape 2 : la mise */}
-        <section className="flex flex-col gap-3" aria-labelledby="step-bet">
-          <StepLabel id="step-bet" n={2}>
-            Ta mise
-          </StepLabel>
+        <div className="flex flex-col gap-3">
+          <ControlLabel hint="+ −">Ta mise</ControlLabel>
           <BetControl value={bet} min={minBet} max={maxBet} onChange={setBet} disabled={pending} />
-          <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm">
-            <span className="text-muted-foreground">Gain possible :</span>
-            <strong className="font-display text-lg">
-              <AnimatedNumber value={bet * multiplier} className="gold-text tabular-nums" /> <span className="text-primary">GNOT</span>
+          <p className="flex flex-wrap items-baseline gap-x-2 gap-y-1 text-sm text-haze">
+            Gain si tu tombes juste
+            <strong className="display-soft text-2xl font-normal text-chalk">
+              <AnimatedNumber value={bet * multiplier} /> GNOT
             </strong>
-            <span className="text-muted-foreground">· 1 chance sur 6</span>
             <Tooltip>
               <TooltipTrigger asChild>
-                <button type="button" className="inline-flex items-center gap-1 text-xs text-muted-foreground underline-offset-2 hover:text-foreground hover:underline">
+                <button type="button" className="inline-flex items-center gap-1 text-xs text-haze underline-offset-2 hover:text-chalk hover:underline">
                   <Info className="size-3.5" /> frais
                 </button>
               </TooltipTrigger>
@@ -232,17 +345,18 @@ export function GameTable({ info, player, status, clockOffset, refresh }: Props)
               </TooltipContent>
             </Tooltip>
           </p>
-        </section>
+        </div>
 
-        {/* Bouton JOUER */}
-        <PlayButton action={action} />
+        <div ref={playRef}>
+          <PlayButton action={action} />
+        </div>
 
         {cooldownLeft > 0 && (
           <div className="flex flex-col gap-2" aria-live="polite">
             <Progress value={Math.round(cooldownProgress * 100)} aria-label="Temps avant le prochain lancer" />
-            <p className="flex items-center gap-2 text-sm text-muted-foreground">
-              <Timer className="size-4 text-primary" />
-              Un lancer toutes les 10 minutes : reviens dans <strong className="font-mono text-foreground">{formatCountdown(cooldownLeft)}</strong>
+            <p className="flex items-center gap-2 text-sm text-haze">
+              <Timer className="size-4 text-signal" />
+              Un lancer toutes les 10 minutes. Reviens dans <strong className="tabular-nums text-chalk">{formatCountdown(cooldownLeft)}</strong>
             </p>
           </div>
         )}
@@ -259,19 +373,28 @@ export function GameTable({ info, player, status, clockOffset, refresh }: Props)
             .
           </Alert>
         )}
-      </div>
-    </Card>
-    </motion.div>
+      </motion.div>
+
+      <ScreenFlash flash={flash} />
+    </section>
   );
 }
 
-function StepLabel({ id, n, children }: { id: string; n: number; children: ReactNode }) {
+const fade = {
+  initial: { opacity: 0, y: 8 },
+  animate: { opacity: 1, y: 0 },
+  exit: { opacity: 0, y: -8 },
+  transition: { duration: 0.35, ease: EASE },
+};
+
+/** Libellé d'une commande, avec son raccourci clavier (ordinateur seulement). */
+function ControlLabel({ children, hint }: { children: ReactNode; hint: string }) {
   return (
-    <h3 id={id} className="flex items-center gap-2.5 font-display text-sm font-bold uppercase tracking-[0.16em] text-gold-100 sm:text-base">
-      <span className="grid size-6 place-items-center rounded-full bg-gold-gradient font-sans text-xs font-extrabold text-primary-foreground shadow-gold">
-        {n}
-      </span>
+    <p className="flex items-center justify-between text-[0.95rem] font-medium text-chalk">
       {children}
-    </h3>
+      <kbd className="hidden rounded-md border border-border bg-lapis-800 px-1.5 py-0.5 font-sans text-[0.7rem] text-haze [@media(hover:hover)]:inline-block">
+        {hint}
+      </kbd>
+    </p>
   );
 }

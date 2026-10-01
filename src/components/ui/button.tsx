@@ -10,14 +10,12 @@ const buttonVariants = cva(
   {
     variants: {
       variant: {
-        // Or : action principale
-        default:
-          "bg-gold-gradient text-primary-foreground shadow-gold hover:-translate-y-px hover:text-primary-foreground hover:shadow-gold-lg active:translate-y-0",
-        // Rouge casino : le bouton JOUER
-        casino:
-          "border border-gold-300/70 bg-casino-gradient font-display uppercase tracking-[0.14em] text-casino-foreground shadow-casino hover:text-casino-foreground",
+        // Craie : action principale de l'interface
+        default: "bg-chalk text-lapis hover:bg-white hover:text-lapis active:scale-[0.97]",
+        // Rubis : réservé au dé et à l'action de jeu
+        casino: "bg-ruby text-white shadow-casino hover:bg-[#f0234b] hover:text-white active:scale-[0.97]",
         outline:
-          "border border-primary/35 bg-black/30 text-foreground hover:border-primary/70 hover:bg-accent hover:text-accent-foreground",
+          "border border-border bg-transparent text-foreground hover:border-chalk/50 hover:bg-white/[0.04] hover:text-foreground active:scale-[0.97]",
         secondary: "bg-secondary text-secondary-foreground hover:bg-secondary/80 hover:text-secondary-foreground",
         ghost: "text-muted-foreground hover:bg-accent hover:text-accent-foreground",
         link: "text-primary underline-offset-4 hover:underline",

@@ -1,7 +1,7 @@
 import { useId, type CSSProperties } from "react";
 
 // Position des points (sur un carré de 100 x 100) pour chaque face du dé.
-// Aussi utilisé par le dé 3D (Dice3D.tsx).
+// Aussi utilisé par le dé 3D (DieScene.tsx).
 export const PIPS: Record<number, [number, number][]> = {
   1: [[50, 50]],
   2: [[28, 28], [72, 72]],
@@ -14,19 +14,25 @@ export const PIPS: Record<number, [number, number][]> = {
 type DieProps = {
   value: number;
   size?: number;
-  /** ivory : dé classique, gold : dé sélectionné */
-  variant?: "ivory" | "gold";
+  /** chalk : face claire (au repos), ruby : acétate rubis (choisi / gagnant) */
+  variant?: "chalk" | "ruby" | "ghost";
   className?: string;
   style?: CSSProperties;
   /** Texte lu par les lecteurs d'écran ; sans titre, le dé est décoratif. */
   label?: string;
 };
 
+const LOOKS = {
+  chalk: { from: "#FBF9F4", to: "#DCD6C8", pip: "#121C55", edge: "rgba(7,12,43,0.18)" },
+  ruby: { from: "#FF5470", to: "#B50E31", pip: "#FBF9F4", edge: "rgba(255,255,255,0.35)" },
+  ghost: { from: "rgba(239,234,223,0.06)", to: "rgba(239,234,223,0.02)", pip: "#8C93BD", edge: "rgba(239,234,223,0.18)" },
+};
+
 /** Une face de dé dessinée en SVG. */
-export function Die({ value, size = 64, variant = "ivory", className, style, label }: DieProps) {
+export function Die({ value, size = 64, variant = "chalk", className, style, label }: DieProps) {
   const id = useId();
   const face = PIPS[value] ?? PIPS[1];
-  const gold = variant === "gold";
+  const look = LOOKS[variant];
 
   return (
     <svg
@@ -41,28 +47,14 @@ export function Die({ value, size = 64, variant = "ivory", className, style, lab
     >
       <defs>
         <linearGradient id={`${id}-body`} x1="0" y1="0" x2="1" y2="1">
-          {gold ? (
-            <>
-              <stop offset="0" stopColor="#fde7a1" />
-              <stop offset="0.45" stopColor="#f5c542" />
-              <stop offset="1" stopColor="#b8860b" />
-            </>
-          ) : (
-            <>
-              <stop offset="0" stopColor="#fffdf7" />
-              <stop offset="1" stopColor="#ddd3bb" />
-            </>
-          )}
+          <stop offset="0" stopColor={look.from} />
+          <stop offset="1" stopColor={look.to} />
         </linearGradient>
-        <radialGradient id={`${id}-pip`} cx="0.35" cy="0.35" r="0.8">
-          <stop offset="0" stopColor={value === 1 && !gold ? "#ff6b6b" : "#3a3a3a"} />
-          <stop offset="1" stopColor={value === 1 && !gold ? "#b3121f" : "#0d0d0d"} />
-        </radialGradient>
       </defs>
-      <rect x="4" y="4" width="92" height="92" rx="20" fill={`url(#${id}-body)`} />
-      <rect x="4" y="4" width="92" height="92" rx="20" fill="none" stroke="rgba(0,0,0,0.25)" strokeWidth="2" />
+      <rect x="5" y="5" width="90" height="90" rx="16" fill={`url(#${id}-body)`} />
+      <rect x="5.5" y="5.5" width="89" height="89" rx="15.5" fill="none" stroke={look.edge} strokeWidth="1.5" />
       {face.map(([cx, cy]) => (
-        <circle key={`${cx}-${cy}`} cx={cx} cy={cy} r={value === 1 ? 11 : 9} fill={`url(#${id}-pip)`} />
+        <circle key={`${cx}-${cy}`} cx={cx} cy={cy} r={value === 1 ? 12 : 8.5} fill={look.pip} />
       ))}
     </svg>
   );
