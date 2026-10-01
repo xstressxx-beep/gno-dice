@@ -42,3 +42,6 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 graphify-out/
+
+# Copie du contrat préparée pour gnokey (scripts/prepare-deploy.mjs)
+/.deploy

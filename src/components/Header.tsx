@@ -36,7 +36,7 @@ export function Header() {
           {/* Le logo : un petit dé rubis qui fait un demi-tour au survol */}
           <span
             aria-hidden
-            className="relative grid size-7 place-items-center rounded-[7px] bg-gradient-to-br from-ruby-light to-ruby-deep shadow-[inset_0_1px_0_rgba(255,255,255,0.4),0_6px_14px_-4px_rgba(227,23,62,0.6)] transition-transform duration-700 ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:rotate-[180deg] group-active:scale-90"
+            className="relative grid size-7 place-items-center rounded-[7px] bg-gradient-to-br from-ruby-light to-ruby-deep shadow-[inset_0_1px_0_rgba(255,255,255,0.4),0_6px_14px_-4px_rgba(227,23,62,0.6)] transition-transform duration-700 [transition-timing-function:cubic-bezier(0.16,1,0.3,1)] group-hover:rotate-[180deg] group-active:scale-90"
           >
             <span className="size-2 rounded-full bg-chalk-50" />
           </span>

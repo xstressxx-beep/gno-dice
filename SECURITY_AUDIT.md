@@ -224,12 +224,13 @@ Remplace `<owner>` et `<croupier>` par les noms de tes clés, `<adresse>` par l'
 gnokey add <owner> --recover        # ta clé de propriétaire
 gnokey add <croupier>               # NOUVELLE clé dédiée au croupier : note la phrase secrète
 
-# 1. Mettre le bon chemin dans contract/gnodice/gnomod.toml :
-#    module = "gno.land/r/<adresse>/gnodice"
+# 1. Préparer une copie du contrat avec le bon chemin (dans .deploy/gnodice) :
+#    npm run deploy:prepare -- <adresse>
+#    (écrit module = "gno.land/r/<adresse>/gnodice", sans les fichiers de test)
 
 # 2. Déployer le contrat (≈ 59 M de gas mesurés)
 gnokey maketx addpkg \
-  -pkgdir ./contract/gnodice \
+  -pkgdir ./.deploy/gnodice \
   -pkgpath gno.land/r/<adresse>/gnodice \
   -gas-fee 1000000ugnot -gas-wanted 120000000 \
   -broadcast -chainid onyx-1 -remote https://rpc.onyx.testnets.gno.land:443 \
