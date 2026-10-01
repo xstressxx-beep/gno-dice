@@ -2,6 +2,8 @@
 
 import Link from "next/link";
 import { Info, WifiOff } from "lucide-react";
+import { useTranslations } from "next-intl";
+import { useErrorText } from "@/i18n/errors";
 import { config } from "@/lib/config";
 import { useGnodice } from "@/hooks/useGnodice";
 import { Alert } from "@/components/ui/alert";
@@ -14,6 +16,8 @@ import { useWallet } from "./WalletProvider";
 
 /** La page de jeu : la table (en haut), le fil des lancers, « Comment ça marche », puis la banque et l'historique. */
 export function Casino() {
+  const t = useTranslations("casino");
+  const errorText = useErrorText();
   const wallet = useWallet();
   const playerAddress = wallet.status === "connected" && !wallet.wrongNetwork ? wallet.address : null;
   const game = useGnodice(playerAddress);
@@ -25,8 +29,8 @@ export function Casino() {
           <Alert variant="info" className="mt-4">
             <Info />
             <p>
-              <strong>Le contrat GNO-DICE n’est pas encore déployé sur {config.chainName}.</strong> Propriétaire du site : déploie-le depuis la page{" "}
-              <Link href="/admin">/admin</Link> avec ton wallet Adena.
+              <strong>{t("absentTitle", { chain: config.chainName })}</strong>{" "}
+              {t.rich("absentText", { link: (chunks) => <Link href="/admin">{chunks}</Link> })}
             </p>
           </Alert>
         )}
@@ -34,15 +38,14 @@ export function Casino() {
           <Alert variant="info" className="mt-4">
             <Info />
             <p>
-              <strong>Le contrat vient d’être déployé.</strong> Le réseau le vérifie avant de l’activer, en général en quelques minutes. La page se
-              mettra à jour toute seule.
+              <strong>{t("inertTitle")}</strong> {t("inertText")}
             </p>
           </Alert>
         )}
         {game.status === "unreachable" && !game.info && (
           <Alert variant="destructive" className="mt-4">
             <WifiOff />
-            <p>Le réseau Gno ne répond pas ({game.error}). Nouvel essai automatique dans quelques secondes.</p>
+            <p>{t("unreachable", { error: errorText(game.error ?? "") })}</p>
           </Alert>
         )}
 

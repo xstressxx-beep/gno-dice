@@ -7,6 +7,8 @@
 // - dé tiré : on dévoile le chiffre gardé dans ce navigateur (relayé par le
 //   croupier) ; en secours, le joueur signe lui-même la révélation.
 
+import { useErrorText } from "@/i18n/errors";
+import { useLocale, useTranslations } from "next-intl";
 import { useEffect, useRef, useState } from "react";
 import { sendTransaction } from "@/lib/adena";
 import { GAS } from "@/lib/config";
@@ -28,9 +30,10 @@ type Props = {
 };
 
 export function OpenGames({ games, onChange, highlightManual }: Props) {
+  const t = useTranslations("open");
   return (
-    <section aria-label="Parties en cours" className={`flex flex-col gap-3 rounded-2xl border p-4 ${highlightManual ? "border-ruby/60" : "border-border"}`}>
-      <h3 className="text-[0.95rem] font-medium text-chalk">Partie en cours</h3>
+    <section aria-label={t("section")} className={`flex flex-col gap-3 rounded-2xl border p-4 ${highlightManual ? "border-ruby/60" : "border-border"}`}>
+      <h3 className="text-[0.95rem] font-medium text-chalk">{t("heading")}</h3>
       {games.map((g) => (
         <OpenGameRow key={g.id} game={g} onChange={onChange} />
       ))}
@@ -39,6 +42,9 @@ export function OpenGames({ games, onChange, highlightManual }: Props) {
 }
 
 function OpenGameRow({ game, onChange }: { game: Game; onChange: () => void }) {
+  const t = useTranslations("open");
+  const locale = useLocale();
+  const errorText = useErrorText();
   const wallet = useWallet();
   // Heure actuelle, relue chaque seconde (compte à rebours)
   const now = useNow();
@@ -88,35 +94,35 @@ function OpenGameRow({ game, onChange }: { game: Game; onChange: () => void }) {
   let actionLabel: string | null = null;
   let action: (() => void) | null = null;
   if (game.status === "pending" && !refundable) {
-    text = `Mise de ${formatGnot(game.bet)} GNOT, en attente du tirage. Remboursable dans ${formatCountdown(Math.max(0, game.resolveDeadline - now))} si le croupier ne répond pas.`;
+    text = t("pending", { amount: formatGnot(game.bet, 2, locale), time: formatCountdown(Math.max(0, game.resolveDeadline - now)) });
   } else if (refundable) {
-    text = `Le croupier n'a pas tiré le dé à temps. Ta mise de ${formatGnot(game.bet)} GNOT t'est due.`;
-    actionLabel = "Récupérer ma mise";
+    text = t("late", { amount: formatGnot(game.bet, 2, locale) });
+    actionLabel = t("refund");
     action = () => signYourself("refund");
   } else if (secret) {
     const won = secret.guess === game.roll;
     text = won
-      ? `Le dé est tombé sur ton ${game.roll} : ${formatGnot(game.bet * 5)} GNOT à encaisser.`
-      : `Le dé est tombé sur le ${game.roll} (tu avais choisi le ${secret.guess}). Termine la partie.`;
-    actionLabel = won ? "Encaisser mon gain" : "Terminer la partie";
+      ? t("won", { roll: game.roll, amount: formatGnot(game.bet * 5, 2, locale) })
+      : t("lost", { roll: game.roll, guess: secret.guess });
+    actionLabel = won ? t("claim") : t("finish");
     action = () => signYourself("reveal");
   } else {
-    text = `Dé tiré (${game.roll}). Ton chiffre secret n'est pas dans ce navigateur : ouvre le site sur l'appareil utilisé pour miser, avant 7 jours.`;
+    text = t("noSecret", { roll: game.roll });
   }
 
   return (
     <div className="flex flex-col gap-2">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <p className="max-w-[46ch] text-sm text-haze">
-          <span className="text-chalk">N° {game.id}.</span> {text}
+          <span className="text-chalk">{t("game", { id: game.id })}</span> {text}
         </p>
         {action && actionLabel && (
           <Button size="sm" onClick={action} disabled={busy || !wallet.address}>
-            {busy ? "Signature…" : actionLabel}
+            {busy ? t("signing") : actionLabel}
           </Button>
         )}
       </div>
-      {error && <Alert variant="destructive">{error}</Alert>}
+      {error && <Alert variant="destructive">{errorText(error)}</Alert>}
     </div>
   );
 }

@@ -1,4 +1,8 @@
 import type { NextConfig } from "next";
+import createNextIntlPlugin from "next-intl/plugin";
+
+// Traductions (next-intl) : la configuration est dans src/i18n/request.ts.
+const withNextIntl = createNextIntlPlugin();
 
 // Nœud RPC Gno : la seule adresse externe que la page a le droit d'appeler.
 const rpcUrl = process.env.NEXT_PUBLIC_GNO_RPC_URL || "https://rpc.onyx.testnets.gno.land:443";
@@ -48,4 +52,4 @@ const nextConfig: NextConfig = {
   },
 };
 
-export default nextConfig;
+export default withNextIntl(nextConfig);

@@ -1,216 +1,258 @@
 # 🎲 GNO-DICE
 
-Jeu de dés décentralisé sur [Gno.land](https://gno.land).
+> 🌐 **English** (this page) · [中文](#中文) · [Español](#español) · [Français](#français)
 
-- Choisis un chiffre de **1 à 6**, mise entre **1 et 10 GNOT**.
-- Si le dé tombe sur ton chiffre, tu gagnes **5 fois ta mise**.
-- **Un lancer toutes les 10 minutes** par joueur.
-- Tout se passe dans un **smart contract Gno** : il reçoit la mise, vérifie le tirage, paie le gagnant et garde l’historique.
-- Le jeu est **prouvablement équitable** : ton chiffre reste caché pendant que le **croupier** (un service du site) tire le
-  dé, puis il est dévoilé et vérifié par le contrat. Personne, ni toi ni la maison, ne peut choisir le résultat.
+A decentralized dice game on [Gno.land](https://gno.land). Live site: <https://gno-dice.vercel.app>
 
-Le site (Next.js) sert d’interface : il lit le contrat gratuitement et demande à ton wallet **Adena** de signer les transactions.
-Le rapport d’audit de sécurité complet est dans [SECURITY_AUDIT.md](SECURITY_AUDIT.md).
+- Pick a number from **1 to 6** and bet between **1 and 10 GNOT**.
+- If the die lands on your number, you win **5 times your bet**.
+- **One roll every 10 minutes** per player.
+- Everything happens in a **Gno smart contract**: it takes the bet, checks the roll, pays the winner and keeps the history.
+- The game is **provably fair**: your number stays hidden while the **croupier** (a service run by the site) rolls the
+  die, then it is revealed and checked by the contract. Nobody, neither you nor the house, can choose the result.
 
----
-
-## Sommaire
-
-1. [Ce qu’il y a dans le projet](#1-ce-quil-y-a-dans-le-projet)
-2. [Lancer le site sur ton ordinateur](#2-lancer-le-site-sur-ton-ordinateur)
-3. [Mettre le site en ligne (GitHub + Vercel)](#3-mettre-le-site-en-ligne-github--vercel)
-4. [Déployer le contrat depuis le site (avec Adena)](#4-déployer-le-contrat-depuis-le-site-avec-adena)
-5. [Les tests](#5-les-tests)
-6. [Sécurité et limites (à lire !)](#6-sécurité-et-limites-à-lire-)
-7. [Passer au mainnet plus tard](#7-passer-au-mainnet-plus-tard)
-8. [Dépannage](#8-dépannage)
+The site (Next.js) is the interface: it reads the contract for free and asks your **Adena** wallet to sign transactions.
+The full security audit report is in [SECURITY_AUDIT.md](SECURITY_AUDIT.md).
 
 ---
 
-## 1. Ce qu’il y a dans le projet
+## Contents
+
+1. [What’s in the project](#1-whats-in-the-project)
+2. [Run the site locally](#2-run-the-site-locally)
+3. [Put the site online (GitHub + Vercel)](#3-put-the-site-online-github--vercel)
+4. [Deploy the contract from the site (with Adena)](#4-deploy-the-contract-from-the-site-with-adena)
+5. [Tests](#5-tests)
+6. [Security and limits (read this!)](#6-security-and-limits-read-this)
+7. [Moving to mainnet later](#7-moving-to-mainnet-later)
+8. [Languages (i18n)](#8-languages-i18n)
+9. [Troubleshooting](#9-troubleshooting)
+
+---
+
+## 1. What’s in the project
 
 ```
 Gnodice/
-├── contract/gnodice/        ← le smart contract Gno
-│   ├── gnodice.gno          ← règles, données, explication du jeu en 3 étapes
+├── contract/gnodice/        ← the Gno smart contract
+│   ├── gnodice.gno          ← rules, data, the 3-step game explained
 │   ├── game.gno             ← Play, Resolve, Reveal, Refund, Expire
-│   ├── fairness.gno         ← empreinte du chiffre caché et calcul du dé (SHA-256)
-│   ├── bank.gno             ← banque, réserve, coupe-circuit, alertes
-│   ├── admin.gno            ← pause, croupier, limites, liste noire, propriété
-│   ├── api.gno              ← lectures pour le site (JSON)
-│   ├── render.gno           ← page lisible sur gnoweb (avec vérification des tirages)
-│   ├── gnodice_test.gno     ← 26 tests du contrat (dont attaques et 1 000 parties)
+│   ├── fairness.gno         ← hidden-number commitment and die computation (SHA-256)
+│   ├── bank.gno             ← bank, reserve, circuit breaker, alerts
+│   ├── admin.gno            ← pause, croupier, limits, blocklist, ownership
+│   ├── api.gno              ← reads for the site (JSON)
+│   ├── render.gno           ← readable page on gnoweb (with roll verification)
+│   ├── gnodice_test.gno     ← 26 contract tests (including attacks and 1,000 games)
 │   └── gnomod.toml
-├── contract/audit/          ← preuve de la faille de l’ancienne version (lecture seule)
-├── e2e/                     ← tests de bout en bout sur une vraie chaîne locale
-├── scripts/                 ← lancement des tests du contrat
+├── contract/audit/          ← proof of the old version’s flaw (read only)
+├── e2e/                     ← end-to-end tests on a real local chain
+├── messages/                ← site texts, one JSON file per language (en, zh, es, fr)
+├── scripts/                 ← contract test runner, deploy preparation
 ├── src/
-│   ├── app/                 ← pages du site : / (jeu), /admin, et /api/croupier (serveur)
-│   ├── components/          ← morceaux d’interface (dé 3D, table de jeu, historique…)
-│   │   └── ui/              ← composants de base shadcn/ui (boutons, onglets, curseur…)
-│   ├── hooks/               ← lecture régulière des données du contrat
-│   └── lib/                 ← blockchain, Adena, équité, croupier (lib/server) + tests
-├── .env.example             ← modèle des réglages (réseau, contrat, croupier)
-├── vercel.json              ← tâche planifiée du croupier
-├── tailwind.config.ts       ← couleurs et animations du thème (Tailwind CSS v3)
-├── components.json          ← réglages shadcn/ui
+│   ├── app/                 ← pages: / (game), /admin, and /api/croupier (server)
+│   ├── components/          ← UI pieces (3D die, game table, history…)
+│   │   └── ui/              ← shadcn/ui base components (buttons, tabs, slider…)
+│   ├── hooks/               ← regular reads of the contract data
+│   ├── i18n/                ← language setup (next-intl)
+│   └── lib/                 ← blockchain, Adena, fairness, croupier (lib/server) + tests
+├── .env.example             ← settings template (network, contract, croupier)
+├── vercel.json              ← croupier scheduled job
+├── tailwind.config.ts       ← theme colors and animations (Tailwind CSS v3)
+├── components.json          ← shadcn/ui settings
 └── package.json
 ```
 
-**Design « casino de luxe »** : Tailwind CSS v3 (styles), shadcn/ui + Radix UI (composants accessibles au clavier),
-Framer Motion (dé 3D qui roule, bouton JOUER qui pulse, connexion Adena), React Spring (chiffres qui défilent, gains qui
-montent) et GSAP (explosion de particules dorées, poussière d’or en fond). Les couleurs sont définies une seule fois dans
-`src/app/globals.css`.
+**Stack**: Next.js 16, React 19, TypeScript, Tailwind CSS v3, shadcn/ui + Radix UI (keyboard-accessible components),
+Framer Motion, React Spring, GSAP and React Three Fiber (3D die), next-intl (translations).
 
-**Réseau par défaut : Onyx (`onyx-1`)**, le testnet officiel de Gno.land. Il fait tourner exactement le même code que le
-mainnet, et ses GNOT sont **gratuits** (faucet). Tu peux tester sans risquer de vrai argent.
+**Default network: Onyx (`onyx-1`)**, the official Gno.land testnet. It runs exactly the same code as mainnet, and its
+GNOT are **free** (faucet), so you can test without risking real money.
 
 ---
 
-## 2. Lancer le site sur ton ordinateur
+## 2. Run the site locally
 
-Il faut [Node.js](https://nodejs.org) (déjà installé chez toi : v24).
+You need [Node.js](https://nodejs.org) v24.
 
 ```bash
-npm install        # installe les dépendances (une seule fois)
-npm run dev        # lance le site sur http://localhost:3000
+npm install        # install dependencies (once)
+npm run dev        # start the site on http://localhost:3000
 ```
 
-Tant que le contrat n’est pas déployé, le site affiche « Le contrat GNO-DICE n’est pas encore déployé » : c’est normal.
+Until the contract is deployed, the site says “The GNO-DICE contract isn’t deployed yet”: that’s expected.
 
 ---
 
-## 3. Mettre le site en ligne (GitHub + Vercel)
+## 3. Put the site online (GitHub + Vercel)
 
-Le code est déjà enregistré dans Git (commit fait). Il reste à l’envoyer sur GitHub puis à le brancher sur Vercel.
+> ⚠️ **GNO-DICE and the “Gnosino” roulette are two separate projects.**
+> `gnosino.vercel.app` is reserved for the roulette: do **not** connect this repository to that Vercel project.
 
-> ⚠️ **GNO-DICE et la roulette « Gnosino » sont deux projets distincts.**
-> `gnosino.vercel.app` reste réservé à la roulette : ne branche **pas** ce dépôt sur ce projet Vercel.
-> Crée un **nouveau projet Vercel** dédié (par ex. `gnodice.vercel.app`).
+1. Repository: <https://github.com/xstressxx-beep/gno-dice>.
+2. Push the code: `git push -u origin main`.
+3. On <https://vercel.com/new>, **import** the `gno-dice` repository as a **new** project. Vercel detects Next.js on its
+   own: keep the default settings and click **Deploy**.
 
-1. Le dépôt GitHub existe déjà : <https://github.com/xstressxx-beep/gno-dice>.
-2. Dans un terminal ouvert dans ce dossier (`Documents\Gnodice`), envoie le code :
-   ```bash
-   git push -u origin main
-   ```
-   Une fenêtre GitHub s’ouvre la première fois pour te connecter : c’est normal.
-3. Sur <https://vercel.com/new>, clique **Import** à côté du dépôt `gno-dice` (un **nouveau** projet, pas celui de Gnosino).
-   Vercel détecte Next.js tout seul : **ne change aucun réglage**, aucune variable n’est nécessaire. Clique **Deploy**. ✅
-
-Ensuite, à chaque `git push`, Vercel remet le site à jour automatiquement.
+After that, every `git push` updates the site automatically.
 
 ---
 
-## 4. Déployer le contrat depuis le site (avec Adena)
+## 4. Deploy the contract from the site (with Adena)
 
-Pas besoin d’installer d’outil Gno : le site envoie le contrat, c’est toi qui signes dans Adena.
+No Gno tooling needed: the site sends the contract, you sign in Adena.
 
-1. Dans **Adena**, utilise ton compte habituel **`g1u97n45s4s6q7vn5clr8339pv4up455hnqn4aff`** (celui de la roulette) et choisis
-   le réseau **Onyx** (le site te le propose automatiquement sinon).
-2. **Récupère des GNOT gratuits** sur <https://faucet.gno.land> (réseau Onyx). Prévois ~60 GNOT : 4 pour le déploiement,
-   50 pour la banque du jeu, le reste pour jouer.
-3. Ouvre **`https://<ton-site>.vercel.app/admin`**, clique **« Connecter Adena »** puis **« Déployer le contrat »**, et accepte dans Adena.
-   - Le contrat est publié à `gno.land/r/g1u97n45s4s6q7vn5clr8339pv4up455hnqn4aff/gnodice` et **tu en deviens le propriétaire**.
-   - Coût : quelques GNOT **bloqués** (dépôt de stockage : le code prend de la place sur la blockchain) + ~0,1 GNOT de frais
-     (gas mesuré : ~59 millions).
-   - Sur Onyx, un « oracle » officiel vérifie le code avant de l’activer : l’état passe de *en attente* à *✔ actif*,
-     en général en quelques minutes. La page se met à jour toute seule.
-4. **Configure le croupier** (obligatoire : sans lui, aucun dé n’est tiré) :
-   - crée dans Adena un **nouveau compte dédié** au croupier, envoie-lui **5 GNOT** (pour payer le gas de ses tirages) et
-     note sa phrase secrète ;
-   - sur Vercel (Settings → Environment Variables), ajoute **`CROUPIER_MNEMONIC`** = cette phrase secrète et
-     **`CRON_SECRET`** = une longue suite aléatoire, puis **redéploie** ;
-   - sur `/admin`, section « Surveillance et sécurité », clique **« Utiliser ce croupier »** et accepte dans Adena ;
-   - ⚠️ ne mets jamais cette phrase dans une variable `NEXT_PUBLIC_…` ni dans Git : elle deviendrait publique.
-5. Quand la page affiche **« ✔ C’est le contrat utilisé par le site : rien à configurer »**, **alimente la banque**
-   (section « Gérer la banque ») : c’est elle qui paie les gains. Pour accepter la mise maximale de 10 GNOT, elle doit
-   avoir **au moins 40 GNOT disponibles** ; 50 à 100 GNOT est un bon début.
-6. Retourne sur la page d’accueil : **tu peux jouer** 🎲
+1. In **Adena**, use the owner account **`g1u97n45s4s6q7vn5clr8339pv4up455hnqn4aff`** and pick the **Onyx** network (the
+   site offers to switch otherwise).
+2. **Get free GNOT** from <https://faucet.gno.land> (Onyx network). Plan for ~60 GNOT: 4 for deployment, 50 for the game
+   bank, the rest to play.
+3. Open **`https://<your-site>.vercel.app/admin`**, click **Connect Adena**, then **Deploy the contract**, and accept in Adena.
+   - The contract is published at `gno.land/r/g1u97n45s4s6q7vn5clr8339pv4up455hnqn4aff/gnodice` and **you become its owner**.
+   - Cost: a few GNOT **locked** as a storage deposit (the code takes space on the blockchain) + ~0.1 GNOT in fees
+     (measured gas: ~59 million).
+   - On Onyx, an official “oracle” checks the code before activating it: the status goes from *pending* to *✔ active*,
+     usually within a few minutes. The page updates on its own.
+4. **Set up the croupier** (required: without it, no die is rolled):
+   - create a **new dedicated account** in Adena for the croupier, send it **5 GNOT** (to pay gas for its rolls) and
+     write down its secret phrase;
+   - on Vercel (Settings → Environment Variables), add **`CROUPIER_MNEMONIC`** = that secret phrase and
+     **`CRON_SECRET`** = a long random string, then **redeploy**;
+   - on `/admin`, in the monitoring section, click **Use this croupier** and accept in Adena;
+   - ⚠️ never put this phrase in a `NEXT_PUBLIC_…` variable or in Git: it would become public.
+5. Once the page shows that the contract is the one used by the site, **fund the bank** (bank section): it pays the
+   winnings. To accept the maximum bet of 10 GNOT, it needs **at least 40 GNOT available**; 50 to 100 GNOT is a good start.
+6. Go back to the home page: **you can play** 🎲
 
-Le contrat est aussi visible sur gnoweb :
+The contract is also visible on gnoweb:
 <https://onyx.testnets.gno.land/r/g1u97n45s4s6q7vn5clr8339pv4up455hnqn4aff/gnodice>
 
-**Tu déploies avec un autre wallet ?** La page `/admin` te l’indique et affiche le chemin exact. Ajoute-le alors sur Vercel
-(Settings → Environment Variables → `NEXT_PUBLIC_GNODICE_REALM`), puis **redéploie** (Deployments → ⋯ → Redeploy) :
-les variables sont intégrées au site au moment du build.
+**Deploying with another wallet?** The `/admin` page tells you and shows the exact path. Add it on Vercel
+(Settings → Environment Variables → `NEXT_PUBLIC_GNODICE_REALM`), then **redeploy**: variables are built into the site.
 
 ---
 
-## 5. Les tests
+## 5. Tests
 
-**Tests du site** (67 vérifications : équité identique au contrat, croupier avec fausse blockchain, surveillance,
-transactions, messages d’erreur…) :
+**Site tests** (67 checks: fairness identical to the contract, croupier against a fake blockchain, monitoring,
+transactions, error messages…):
 
 ```bash
 npm test
 ```
 
-**Tests du contrat** (26 tests : règles du jeu, une attaque par test, coupe-circuit, 1 000 parties). Il faut Go et le
-dépôt Gno cloné ([installation](https://docs.gno.land/builders/install)) :
+**Contract tests** (26 tests: game rules, one attack per test, circuit breaker, 1,000 games). Requires Go and a clone of
+the Gno repository ([install](https://docs.gno.land/builders/install)):
 
 ```bash
 git clone https://github.com/gnolang/gno.git ~/tools/gno-src
 cd ~/tools/gno-src && go install ./gnovm/cmd/gno ./contribs/gnodev
-cd <dossier Gnodice> && npm run test:contract     # GNO_ROOT / GNO_BIN si installés ailleurs
+cd <Gnodice folder> && npm run test:contract     # GNO_ROOT / GNO_BIN if installed elsewhere
 ```
 
-**Tests de bout en bout** (vraies transactions sur une chaîne locale : partie complète, triches refusées, 8 joueurs en
-parallèle). Après `npm run test:contract` (qui copie le contrat dans `~/tools/gno-src/examples`), dans un premier
-terminal ouvert dans `~/tools/gno-src/examples` :
+**End-to-end tests** (real transactions on a local chain: full game, cheating refused, 8 players in parallel). After
+`npm run test:contract` (which copies the contract into `~/tools/gno-src/examples`), in a first terminal opened in
+`~/tools/gno-src/examples`:
 
 ```bash
 gnodev local -paths gno.land/r/example/gnodice -no-web -empty-blocks
 ```
 
-puis dans un second terminal : `npm run test:e2e`.
+then in a second terminal: `npm run test:e2e`.
 
-Autres vérifications : `npm run lint` (qualité du code) et `npm run build` (le même build que Vercel).
-
----
-
-## 6. Sécurité et limites (à lire !)
-
-Le détail (failles trouvées, corrections, tests) est dans [SECURITY_AUDIT.md](SECURITY_AUDIT.md). L’essentiel :
-
-- **Le jeu en 3 étapes** : tu mises sur un chiffre **caché** (son empreinte SHA-256 avec un secret aléatoire gardé dans ton
-  navigateur) → le croupier tire le dé **sans connaître ton chiffre** et publie sa graine → ton chiffre est dévoilé, le
-  contrat vérifie et paie. Le site recalcule chaque tirage pour le vérifier.
-- **Ne change pas de navigateur entre la mise et la fin de la partie** : le secret est gardé dans celui-ci. Le site
-  termine la partie tout seul, en général en quelques secondes.
-- **Filets de sécurité** : si le croupier ne répond pas en 30 minutes, tu récupères ta mise (bouton « Récupérer ma
-  mise ») ; une partie jamais dévoilée expire après 7 jours et compte perdue.
-- **La banque réserve 5× chaque mise** : elle ne peut jamais promettre plus que ce qu’elle possède, et le propriétaire
-  ne peut retirer que la part non réservée.
-- **Coupe-circuit** : au-delà de 500 GNOT de gains dans la journée (réglable), le jeu se met en pause tout seul.
-- **Confiance dans le croupier** : il ne peut pas tricher contre un joueur (il ne connaît pas son chiffre). Si sa clé
-  était volée, le coupe-circuit limite les pertes ; change alors de croupier dans `/admin`.
-- **Avantage de la maison** : 1 chance sur 6 de gagner 5× → le joueur récupère en moyenne 83 % de ses mises.
-- **Frais pour le joueur** : ~0,02 GNOT de frais réseau par lancer, et environ 0,85 GNOT de dépôt de stockage lors de la
-  toute première partie d’un joueur (mesuré sur une chaîne locale ; la place de sa fiche sur la blockchain).
-- Le site ne voit **jamais** ta clé privée : Adena signe, toi tu acceptes ou refuses.
+Other checks: `npm run lint` (code quality) and `npm run build` (the same build as Vercel).
 
 ---
 
-## 7. Passer au mainnet plus tard
+## 6. Security and limits (read this!)
 
-Le mainnet Gno.land (`gnoland-1`) est lancé depuis le 12/09/2026. Les GNOT y ont une vraie valeur et il n’y a pas de
-faucet. Suis d’abord la **checklist de mise en production** de [SECURITY_AUDIT.md](SECURITY_AUDIT.md) et fais relire le contrat par
-un auditeur indépendant.
-Il suffira alors de redéployer le contrat sur le mainnet et de changer les variables (valeurs dans `.env.example`).
+Details (flaws found, fixes, tests) are in [SECURITY_AUDIT.md](SECURITY_AUDIT.md). The essentials:
+
+- **3-step game**: you bet on a **hidden** number (its SHA-256 commitment with a random secret kept in your browser) →
+  the croupier rolls the die **without knowing your number** and publishes its seed → your number is revealed, the
+  contract checks it and pays. The site recomputes every roll to verify it.
+- **Don’t switch browsers between the bet and the end of the game**: the secret is kept in that browser. The site
+  finishes the game on its own, usually within seconds.
+- **Safety nets**: if the croupier doesn’t respond within 30 minutes, you get your bet back (“Get my bet back” button);
+  a game never revealed expires after 7 days and counts as lost.
+- **The bank reserves 5× every bet**: it can never promise more than it holds, and the owner can only withdraw the
+  unreserved part.
+- **Circuit breaker**: above 500 GNOT of winnings in a day (configurable), the game pauses itself.
+- **Trust in the croupier**: it can’t cheat a player (it doesn’t know their number). If its key were stolen, the circuit
+  breaker limits losses; switch croupier in `/admin`.
+- **House edge**: 1 chance in 6 to win 5× → players get back 83% of their bets on average.
+- **Player fees**: ~0.02 GNOT network fee per roll, and about 0.85 GNOT storage deposit on a player’s very first game.
+- The site **never** sees your private key: Adena signs, you accept or refuse.
 
 ---
 
-## 8. Dépannage
+## 7. Moving to mainnet later
 
-| Problème | Solution |
+Gno.land mainnet (`gnoland-1`) launched on 2026-09-12. GNOT there have real value and there is no faucet. First follow
+the **production checklist** in [SECURITY_AUDIT.md](SECURITY_AUDIT.md) and have the contract reviewed by an independent
+auditor. Then redeploy the contract on mainnet and change the variables (values in `.env.example`).
+
+---
+
+## 8. Languages (i18n)
+
+The site is available in **English** (default), **中文**, **Español** and **Français**, using
+[next-intl](https://next-intl.dev). The language is picked automatically from the browser (English if it isn’t
+available) and can be changed with the selector in the header; the choice is remembered in a cookie.
+
+**Add a language** (e.g. German):
+
+1. Copy `messages/en.json` to `messages/de.json` and translate the values (keep the keys and `{placeholders}`).
+2. Add `de: "Deutsch"` to `LOCALES` in `src/i18n/config.ts`.
+
+Missing keys in a translation fall back to English. The `/admin` page stays in French (owner only).
+
+---
+
+## 9. Troubleshooting
+
+| Problem | Fix |
 |---|---|
-| « Installer Adena » alors qu’Adena est installé | Recharge la page ; vérifie qu’Adena est déverrouillé. |
-| « Changer de réseau » | Clique dessus et accepte dans Adena (Onyx sera ajouté s’il manque). |
-| « Solde insuffisant » | Recharge ton wallet sur <https://faucet.gno.land>. |
-| « Mise max possible : X GNOT » / « La banque est vide » | Alimente la banque depuis `/admin`. |
-| « Prochain lancer dans mm:ss » | C’est la règle des 10 minutes, patience 🙂 |
-| Le contrat reste « en attente d’activation » | L’oracle d’Onyx vérifie le code ; attends quelques minutes et recharge `/admin`. |
-| « Le contrat GNO-DICE n’est pas encore déployé » | Déploie-le depuis `/admin` (section 4). Si tu l’as déployé avec un autre wallet que `g1u97n…4aff`, ajoute `NEXT_PUBLIC_GNODICE_REALM` sur Vercel puis **redéploie**. |
-| « Activation du contrat en cours… » | L’oracle d’Onyx vérifie le code : patiente quelques minutes, la page se met à jour seule. |
-| Le dé ne roule pas, aucune animation | Ton ordinateur demande de « réduire les animations » : le site respecte ce choix (accessibilité). Sur Windows : Paramètres → Accessibilité → Effets visuels → active **Effets d’animation**, puis recharge la page. |
-| `git push` refusé | Vérifie que le dépôt GitHub existe, qu’il est vide, et que l’adresse après `git remote add origin` est la bonne. |
+| “Install Adena” although Adena is installed | Reload the page; check that Adena is unlocked. |
+| “Switch network” | Click it and accept in Adena (Onyx is added if missing). |
+| “Insufficient balance” | Top up your wallet at <https://faucet.gno.land>. |
+| “Max possible bet: X GNOT” / “The bank is empty” | Fund the bank from `/admin`. |
+| “Next roll in mm:ss” | That’s the 10-minute rule, be patient 🙂 |
+| The contract stays “pending activation” | Onyx’s oracle is checking the code; wait a few minutes and reload `/admin`. |
+| “The GNO-DICE contract isn’t deployed yet” | Deploy it from `/admin` (section 4). If you deployed with another wallet than `g1u97n…4aff`, add `NEXT_PUBLIC_GNODICE_REALM` on Vercel and **redeploy**. |
+| The die doesn’t roll, no animation | Your device asks for reduced motion and the site respects it. Use the animation button in the header, or on Windows: Settings → Accessibility → Visual effects → **Animation effects**. |
+
+---
+
+## 中文
+
+**GNO-DICE** 是一款运行在 [Gno.land](https://gno.land) 上的去中心化骰子游戏：从 1 到 6 中选一个数字，下注 1 到 10 GNOT，
+骰子落在你的数字上即可赢得 **5 倍下注**，每位玩家每 10 分钟可掷一次。游戏**可证明公平**：荷官掷骰时不知道你的数字，
+合约会在付款前验证结果。所有下注和赔付都公开记录在链上。
+
+- 网站：<https://gno-dice.vercel.app>（钱包：[Adena](https://adena.app)，测试网免费 GNOT：<https://faucet.gno.land>）
+- 本地运行：`npm install` 然后 `npm run dev`
+- 安全审计：[SECURITY_AUDIT.md](SECURITY_AUDIT.md)
+- 完整文档请参阅上方英文版。
+
+## Español
+
+**GNO-DICE** es un juego de dados descentralizado en [Gno.land](https://gno.land): elige un número del 1 al 6, apuesta
+entre 1 y 10 GNOT y gana **5 veces tu apuesta** si el dado cae en tu número. Una tirada cada 10 minutos por jugador.
+El juego es **demostrablemente justo**: el crupier tira el dado sin conocer tu número y el contrato verifica el
+resultado antes de pagar. Todas las apuestas y pagos son públicos en la cadena.
+
+- Sitio: <https://gno-dice.vercel.app> (wallet: [Adena](https://adena.app), GNOT gratis en la testnet: <https://faucet.gno.land>)
+- Ejecutar en local: `npm install` y luego `npm run dev`
+- Auditoría de seguridad: [SECURITY_AUDIT.md](SECURITY_AUDIT.md)
+- La documentación completa está en la versión en inglés de arriba.
+
+## Français
+
+**GNO-DICE** est un jeu de dés décentralisé sur [Gno.land](https://gno.land) : choisis un chiffre de 1 à 6, mise entre
+1 et 10 GNOT et gagne **5 fois ta mise** si le dé tombe sur ton chiffre. Un lancer toutes les 10 minutes par joueur.
+Le jeu est **prouvablement équitable** : le croupier tire le dé sans connaître ton chiffre et le contrat vérifie le
+résultat avant de payer. Toutes les mises et tous les paiements sont publics sur la blockchain.
+
+- Site : <https://gno-dice.vercel.app> (wallet : [Adena](https://adena.app), GNOT gratuits sur le testnet : <https://faucet.gno.land>)
+- Lancer en local : `npm install` puis `npm run dev`
+- Audit de sécurité : [SECURITY_AUDIT.md](SECURITY_AUDIT.md)
+- La documentation complète est dans la version anglaise ci-dessus.

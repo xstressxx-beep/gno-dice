@@ -1,7 +1,9 @@
 import Link from "next/link";
+import { useTranslations } from "next-intl";
 import { config } from "@/lib/config";
 
 export function Footer() {
+  const t = useTranslations("footer");
   const isTestnet = config.chainId !== "gnoland-1";
   return (
     <footer className="mt-auto border-t border-border text-sm text-haze">
@@ -9,25 +11,27 @@ export function Footer() {
         <div className="flex flex-col gap-2">
           <p className="display-soft text-3xl leading-none text-chalk">gnodice</p>
           <p className="max-w-[48ch]">
-            Un jeu de dés décentralisé sur{" "}
-            <a href={config.gnowebUrl} target="_blank" rel="noreferrer">
-              Gno.land
-            </a>
-            .{isTestnet && " Réseau de test : les GNOT n’ont pas de valeur réelle."} Joue de façon responsable : ne mise jamais plus que ce que tu es
-            prêt à perdre.
+            {t.rich("about", {
+              link: (chunks) => (
+                <a href={config.gnowebUrl} target="_blank" rel="noreferrer">
+                  {chunks}
+                </a>
+              ),
+            })}
+            {isTestnet && ` ${t("testnet")}`} {t("responsible")}
           </p>
         </div>
-        <nav aria-label="Liens utiles" className="flex flex-wrap gap-x-6 gap-y-2">
-          <a href="#comment-ca-marche">Comment ça marche</a>
+        <nav aria-label={t("nav")} className="flex flex-wrap gap-x-6 gap-y-2">
+          <a href="#comment-ca-marche">{t("how")}</a>
           {config.faucetUrl && (
             <a href={config.faucetUrl} target="_blank" rel="noreferrer">
-              GNOT gratuits
+              {t("faucet")}
             </a>
           )}
           <a href="https://adena.app" target="_blank" rel="noreferrer">
-            Wallet Adena
+            {t("adena")}
           </a>
-          <Link href="/admin">Administration</Link>
+          <Link href="/admin">{t("admin")}</Link>
         </nav>
       </div>
     </footer>

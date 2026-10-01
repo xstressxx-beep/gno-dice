@@ -6,6 +6,7 @@
 // Une fois connecté : avatar coloré, solde animé (React Spring) et un menu
 // déroulant (Radix UI) pour copier l'adresse ou se déconnecter.
 
+import { useLocale, useTranslations } from "next-intl";
 import { useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { Check, ChevronDown, Copy, Download, Droplets, Loader2, LogOut, RefreshCw, Wallet } from "lucide-react";
@@ -28,6 +29,7 @@ import { useWallet } from "./WalletProvider";
 type View = "checking" | "no-extension" | "disconnected" | "connecting" | "wrong-network" | "connected";
 
 export function WalletButton() {
+  const t = useTranslations("wallet");
   const { status, address, wrongNetwork, connect, switchNetwork } = useWallet();
 
   let view: View = status === "connected" ? "disconnected" : status;
@@ -43,12 +45,12 @@ export function WalletButton() {
         exit={{ opacity: 0, scale: 0.9, y: 6 }}
         transition={{ type: "spring", stiffness: 420, damping: 28 }}
       >
-        {view === "checking" && <Skeleton className="h-10 w-32 rounded-full sm:w-40" aria-label="Recherche d’Adena…" />}
+        {view === "checking" && <Skeleton className="h-10 w-32 rounded-full sm:w-40" aria-label={t("searching")} />}
 
         {view === "no-extension" && (
           <Button asChild>
             <a href={ADENA_DOWNLOAD_URL} target="_blank" rel="noreferrer">
-              <Download /> Installer Adena
+              <Download /> {t("install")}
             </a>
           </Button>
         )}
@@ -58,8 +60,8 @@ export function WalletButton() {
             {/* Reflet qui passe sur le bouton */}
             <span aria-hidden className="pointer-events-none absolute inset-y-0 left-0 w-1/3 animate-sweep bg-gradient-to-r from-transparent via-white/60 to-transparent" />
             <Wallet className="transition-transform duration-300 group-hover:-rotate-12 group-hover:scale-110" />
-            <span className="hidden sm:inline">Connecter Adena</span>
-            <span className="sm:hidden">Connecter</span>
+            <span className="hidden sm:inline">{t("connect")}</span>
+            <span className="sm:hidden">{t("connectShort")}</span>
           </Button>
         )}
 
@@ -67,7 +69,7 @@ export function WalletButton() {
 
         {view === "wrong-network" && (
           <Button variant="casino" onClick={switchNetwork} className="font-sans normal-case tracking-normal">
-            <RefreshCw /> Changer de réseau
+            <RefreshCw /> {t("switchNetwork")}
           </Button>
         )}
 
@@ -79,6 +81,7 @@ export function WalletButton() {
 
 /** Pendant la connexion : un anneau doré tourne autour du bouton. */
 function ConnectingPill() {
+  const t = useTranslations("wallet");
   return (
     <div className="relative h-10 overflow-hidden rounded-full p-px" role="status">
       <motion.span
@@ -89,7 +92,7 @@ function ConnectingPill() {
       />
       <span className="relative flex h-full items-center gap-2 rounded-full bg-black px-4 text-sm font-semibold text-primary">
         <Loader2 className="size-4 animate-spin" />
-        Connexion…
+        {t("connecting")}
       </span>
     </div>
   );
@@ -97,6 +100,8 @@ function ConnectingPill() {
 
 /** Wallet connecté : avatar + solde + adresse, avec un menu au clic. */
 function AccountMenu({ address }: { address: string }) {
+  const t = useTranslations("wallet");
+  const locale = useLocale();
   const { balance, disconnect } = useWallet();
   const [copied, setCopied] = useState(false);
   const [h1, h2] = addressHues(address);
@@ -118,7 +123,7 @@ function AccountMenu({ address }: { address: string }) {
         <button
           type="button"
           className="group relative flex h-10 min-w-0 items-center gap-2 rounded-full border border-primary/35 bg-lapis-950/50 py-1 pl-1 pr-2.5 text-sm transition-colors hover:border-primary/70 hover:bg-accent/60 data-[state=open]:border-primary/80"
-          aria-label={`Wallet connecté ${shortAddress(address)} : ouvrir le menu`}
+          aria-label={t("menu", { address: shortAddress(address) })}
         >
           {/* Onde dorée une seule fois, à la connexion */}
           <motion.span
@@ -134,7 +139,7 @@ function AccountMenu({ address }: { address: string }) {
             style={{ background: `conic-gradient(from 120deg, hsl(${h1} 80% 55%), hsl(${h2} 85% 45%), hsl(${h1} 80% 55%))` }}
           />
           <span className="font-bold text-primary tabular-nums">
-            {balance === null ? "…" : <AnimatedNumber value={balance} format={(n) => formatGnot(n)} />}
+            {balance === null ? "…" : <AnimatedNumber value={balance} format={(n) => formatGnot(n, 2, locale)} />}
             <span className="ml-1 text-xs font-semibold text-muted-foreground">GNOT</span>
           </span>
           <span className="hidden border-l border-primary/20 pl-2 font-mono text-xs text-foreground/80 sm:inline" title={address}>
@@ -146,7 +151,7 @@ function AccountMenu({ address }: { address: string }) {
       <DropdownMenuContent align="end" className="w-72">
         <DropdownMenuLabel>
           <span className="flex items-center gap-1.5 text-win">
-            <span className="size-1.5 rounded-full bg-win" /> Connecté avec Adena
+            <span className="size-1.5 rounded-full bg-win" /> {t("connectedWith")}
           </span>
           <span className="mt-1.5 block break-all font-mono text-[0.7rem] leading-relaxed text-foreground/80">{address}</span>
         </DropdownMenuLabel>
@@ -158,18 +163,18 @@ function AccountMenu({ address }: { address: string }) {
           }}
         >
           {copied ? <Check /> : <Copy />}
-          {copied ? "Adresse copiée !" : "Copier l’adresse"}
+          {copied ? t("copied") : t("copy")}
         </DropdownMenuItem>
         {isTestnet && config.faucetUrl && (
           <DropdownMenuItem asChild>
             <a href={config.faucetUrl} target="_blank" rel="noreferrer">
-              <Droplets /> GNOT gratuits (faucet)
+              <Droplets /> {t("faucet")}
             </a>
           </DropdownMenuItem>
         )}
         <DropdownMenuSeparator />
         <DropdownMenuItem onSelect={disconnect} className="text-destructive focus:bg-destructive/10 focus:text-destructive [&_svg]:text-destructive">
-          <LogOut /> Déconnecter
+          <LogOut /> {t("disconnect")}
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>

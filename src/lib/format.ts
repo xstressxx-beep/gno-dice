@@ -3,8 +3,8 @@
 export const UGNOT_PER_GNOT = 1_000_000;
 
 /** Convertit des ugnot en GNOT lisibles : 1500000 -> "1,5". */
-export function formatGnot(ugnot: number, maxDecimals = 2): string {
-  return (ugnot / UGNOT_PER_GNOT).toLocaleString("fr-FR", {
+export function formatGnot(ugnot: number, maxDecimals = 2, locale = "fr-FR"): string {
+  return (ugnot / UGNOT_PER_GNOT).toLocaleString(locale, {
     maximumFractionDigits: maxDecimals,
   });
 }
@@ -24,8 +24,8 @@ export function formatCountdown(seconds: number): string {
 }
 
 /** Date lisible à partir d'un horodatage Unix (secondes). */
-export function formatDate(unixSeconds: number): string {
-  return new Date(unixSeconds * 1000).toLocaleString("fr-FR", {
+export function formatDate(unixSeconds: number, locale = "fr-FR"): string {
+  return new Date(unixSeconds * 1000).toLocaleString(locale, {
     day: "2-digit",
     month: "2-digit",
     hour: "2-digit",

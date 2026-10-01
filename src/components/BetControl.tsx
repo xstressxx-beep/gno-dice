@@ -5,6 +5,7 @@
 
 import { motion } from "framer-motion";
 import { Minus, Plus } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { haptic, sparkBurstFrom } from "@/lib/fx";
 import { Slider } from "@/components/ui/slider";
 import { cn } from "@/lib/utils";
@@ -27,6 +28,7 @@ const CHIPS = [
 ];
 
 export function BetControl({ value, min, max, onChange, disabled }: BetControlProps) {
+  const t = useTranslations("bet");
   const clamp = (v: number) => Math.min(max, Math.max(min, Math.round(v)));
 
   return (
@@ -34,14 +36,14 @@ export function BetControl({ value, min, max, onChange, disabled }: BetControlPr
       <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-3">
         {/* − mise + */}
         <div className="flex items-center gap-1">
-          <StepButton label="Diminuer la mise" onClick={() => onChange(clamp(value - 1))} disabled={disabled || value <= min}>
+          <StepButton label={t("decrease")} onClick={() => onChange(clamp(value - 1))} disabled={disabled || value <= min}>
             <Minus className="size-4" />
           </StepButton>
           <p className="min-w-[6.5rem] text-center" aria-live="polite">
             <AnimatedNumber value={value} className="display-soft text-[2.6rem] leading-none text-chalk" />
             <span className="ml-1.5 text-sm text-haze">GNOT</span>
           </p>
-          <StepButton label="Augmenter la mise" onClick={() => onChange(clamp(value + 1))} disabled={disabled || value >= max}>
+          <StepButton label={t("increase")} onClick={() => onChange(clamp(value + 1))} disabled={disabled || value >= max}>
             <Plus className="size-4" />
           </StepButton>
         </div>
@@ -60,7 +62,7 @@ export function BetControl({ value, min, max, onChange, disabled }: BetControlPr
                   haptic(8);
                 }}
                 disabled={disabled}
-                aria-label={`Miser ${chip.value} GNOT`}
+                aria-label={t("chip", { value: chip.value })}
                 aria-pressed={active}
                 className={cn(
                   "relative grid size-11 place-items-center rounded-full text-sm font-semibold disabled:cursor-not-allowed disabled:opacity-40 sm:size-12",
@@ -84,7 +86,7 @@ export function BetControl({ value, min, max, onChange, disabled }: BetControlPr
         </div>
       </div>
 
-      <Slider min={min} max={max} step={1} value={[value]} onValueChange={([v]) => onChange(clamp(v))} disabled={disabled} aria-label="Mise en GNOT" />
+      <Slider min={min} max={max} step={1} value={[value]} onValueChange={([v]) => onChange(clamp(v))} disabled={disabled} aria-label={t("slider")} />
     </div>
   );
 }

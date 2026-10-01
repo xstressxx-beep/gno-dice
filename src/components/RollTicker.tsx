@@ -5,6 +5,7 @@
 // la page semble réagir au moindre mouvement.
 // Sans partie jouée, il rappelle les règles.
 
+import { useLocale, useTranslations } from "next-intl";
 import { useRef } from "react";
 import { motion, useAnimationFrame, useMotionValue, useScroll, useSpring, useTransform, useVelocity, wrap } from "framer-motion";
 import { GAME } from "@/lib/config";
@@ -12,15 +13,17 @@ import { formatGnot, shortAddress } from "@/lib/format";
 import type { Game } from "@/lib/gno";
 import { Die } from "./Die";
 
-const RULES = [
-  "Un chiffre de 1 à 6",
-  `Mise de ${GAME.minBetGnot} à ${GAME.maxBetGnot} GNOT`,
-  `${GAME.multiplier} fois la mise si tu tombes juste`,
-  "Un lancer toutes les dix minutes",
-  "Tout est vérifiable sur Gno.land",
-];
-
 export function RollTicker({ recent }: { recent: Game[] }) {
+  const t = useTranslations("ticker");
+  const locale = useLocale();
+  // Les règles défilent tant qu'aucune partie n'a été jouée
+  const RULES = [
+    t("rule1"),
+    t("rule2", { min: GAME.minBetGnot, max: GAME.maxBetGnot }),
+    t("rule3", { multiplier: GAME.multiplier }),
+    t("rule4"),
+    t("rule5"),
+  ];
   // Seulement les parties jouées jusqu'au bout (pas les mises remboursées ou expirées)
   const played = recent.filter((g) => g.status === "won" || g.status === "lost");
   const items = played.length > 0 ? played.slice(0, 12) : null;
@@ -49,9 +52,9 @@ export function RollTicker({ recent }: { recent: Game[] }) {
             <li key={g.id} className="flex items-center gap-3 whitespace-nowrap text-[0.95rem] text-haze">
               <Die value={g.roll} size={22} variant={g.won ? "ruby" : "chalk"} />
               <span>
-                <span className="text-chalk/80">{shortAddress(g.player)}</span> a misé {formatGnot(g.bet)} sur le {g.guess}
+                <span className="text-chalk/80">{shortAddress(g.player)}</span> {t("bet", { amount: formatGnot(g.bet, 2, locale), guess: g.guess })}
               </span>
-              {g.won ? <span className="text-ruby-light">+{formatGnot(g.payout)} GNOT</span> : <span>tombé sur le {g.roll}</span>}
+              {g.won ? <span className="text-ruby-light">+{formatGnot(g.payout, 2, locale)} GNOT</span> : <span>{t("landed", { roll: g.roll })}</span>}
             </li>
           ))
         : RULES.map((rule, i) => (
@@ -64,7 +67,7 @@ export function RollTicker({ recent }: { recent: Game[] }) {
   );
 
   return (
-    <section aria-label={items ? "Derniers lancers" : "Règles du jeu"} className="relative overflow-hidden border-y border-border/70 py-4">
+    <section aria-label={items ? t("recent") : t("rules")} className="relative overflow-hidden border-y border-border/70 py-4">
       <div className="pointer-events-none absolute inset-y-0 left-0 z-10 w-24 bg-gradient-to-r from-background to-transparent" />
       <div className="pointer-events-none absolute inset-y-0 right-0 z-10 w-24 bg-gradient-to-l from-background to-transparent" />
       <motion.div className="flex w-max" style={{ x }}>

@@ -5,12 +5,14 @@
 // réglage de l'appareil ; si l'appareil les réduit, une pastille le signale.
 
 import { motion } from "framer-motion";
+import { useTranslations } from "next-intl";
 import { setReducedMotion, systemPrefersReduced, useReducedMotionPref } from "@/lib/motion";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
 export function MotionToggle() {
   const reduced = useReducedMotionPref();
-  const label = reduced ? "Activer les animations" : "Réduire les animations";
+  const t = useTranslations("motion");
+  const label = reduced ? t("enable") : t("reduce");
 
   return (
     <Tooltip>
@@ -42,7 +44,7 @@ export function MotionToggle() {
       </TooltipTrigger>
       <TooltipContent>
         {label}
-        {reduced && systemPrefersReduced() && " (ton appareil demande des animations réduites)"}
+        {reduced && systemPrefersReduced() && t("system")}
       </TooltipContent>
     </Tooltip>
   );

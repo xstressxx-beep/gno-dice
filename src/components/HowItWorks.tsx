@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import { useTranslations } from "next-intl";
 import { Dices, ExternalLink, EyeOff, Landmark, ScanSearch, ShieldCheck, type LucideIcon } from "lucide-react";
 import { config, contractUrl, GAME } from "@/lib/config";
 
@@ -7,46 +7,20 @@ import { config, contractUrl, GAME } from "@/lib/config";
 // Gno.land, code source, audit). Le détail technique est dans
 // contract/gnodice/gnodice.gno et SECURITY_AUDIT.md.
 
-type Step = { icon: LucideIcon; title: string; text: ReactNode };
-
-const STEPS: Step[] = [
-  {
-    icon: ShieldCheck,
-    title: "Ton gain est réservé avant le lancer",
-    text: (
-      <>
-        Dès que tu mises, la banque met de côté {GAME.multiplier} fois ta mise. Si elle ne peut pas, la mise est refusée : aucune partie ne
-        promet plus que ce que la banque possède.
-      </>
-    ),
-  },
-  {
-    icon: EyeOff,
-    title: "Ton chiffre reste sous scellé",
-    text: "Ton chiffre part de ton navigateur dans une enveloppe scellée. Personne ne peut l’ouvrir avant le lancer, ni le site, ni le croupier.",
-  },
-  {
-    icon: Dices,
-    title: "Le dé est tiré à l’aveugle",
-    text: "Le croupier, un petit robot du site, fournit un tirage au hasard sans connaître ton chiffre. La face du dé se calcule à partir de ce tirage et de ton enveloppe, puis le tirage est publié.",
-  },
-  {
-    icon: ScanSearch,
-    title: "Le résultat est vérifié deux fois",
-    text: "Ton navigateur refait le calcul du dé à partir du tirage publié et te prévient si quelque chose ne colle pas. À l’ouverture de l’enveloppe, le contrat vérifie que c’est bien ton chiffre avant de payer. Si le dé n’est jamais tiré, tu récupères ta mise au bout de 30 minutes.",
-  },
-  {
-    icon: Landmark,
-    title: "Tout est public",
-    text: "La banque, les mises, les tirages et les paiements sont écrits dans le contrat sur Gno.land, lisible par tous et à tout moment. Le code du jeu et du site est ouvert : chacun peut le relire.",
-  },
-];
+// Icône de chaque étape ; titres et textes : messages/*.json (how.step1Title, how.step1Text…).
+const STEP_ICONS: LucideIcon[] = [ShieldCheck, EyeOff, Dices, ScanSearch, Landmark];
 
 export function HowItWorks() {
+  const t = useTranslations("how");
+  const STEPS = STEP_ICONS.map((icon, i) => ({
+    icon,
+    title: t(`step${i + 1}Title`),
+    text: t(`step${i + 1}Text`, { multiplier: GAME.multiplier }),
+  }));
   const links = [
-    { href: contractUrl, label: "Voir le contrat sur Gno.land" },
-    { href: config.repoUrl, label: "Lire le code source" },
-    { href: `${config.repoUrl}/blob/main/SECURITY_AUDIT.md`, label: "Lire l’audit de sécurité" },
+    { href: contractUrl, label: t("contract") },
+    { href: config.repoUrl, label: t("source") },
+    { href: `${config.repoUrl}/blob/main/SECURITY_AUDIT.md`, label: t("audit") },
   ];
 
   return (
@@ -55,10 +29,10 @@ export function HowItWorks() {
         {/* Intro et liens de vérification (reste visible pendant qu'on lit les étapes) */}
         <div className="flex flex-col lg:sticky lg:top-28 lg:self-start">
           <h2 id="how-title" className="display-soft text-[clamp(2rem,4vw,3rem)] leading-none tracking-[-0.02em] text-chalk">
-            Comment ça marche
+            {t("title")}
           </h2>
           <p className="mt-5 max-w-[40ch] text-haze sm:text-lg sm:leading-relaxed">
-            Pas besoin de nous croire sur parole. Chaque étape d’une partie laisse une trace publique que tu peux vérifier toi-même.
+            {t("intro")}
           </p>
           <ul className="mt-8 flex flex-col gap-3 text-[0.95rem]">
             {links.map((l) => (

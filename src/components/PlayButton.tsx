@@ -7,6 +7,7 @@
 
 import type { MouseEvent } from "react";
 import { motion } from "framer-motion";
+import { useTranslations } from "next-intl";
 import { cn } from "@/lib/utils";
 
 export type PlayAction = {
@@ -37,6 +38,7 @@ export function BouncingPips({ className }: { className?: string }) {
 }
 
 export function PlayButton({ action }: { action: PlayAction }) {
+  const t = useTranslations("play");
   const ready = !action.disabled && (!!action.onClick || !!action.href);
   const hot = ready && action.primary;
 
@@ -56,7 +58,7 @@ export function PlayButton({ action }: { action: PlayAction }) {
       <span className="relative text-center leading-tight">{action.label}</span>
       {hot && (
         <kbd aria-hidden className="relative hidden rounded-md border border-white/30 px-1.5 py-0.5 font-sans text-[0.7rem] font-medium text-white/80 [@media(hover:hover)]:inline-block">
-          Entrée
+          {t("enter")}
         </kbd>
       )}
     </>
@@ -70,7 +72,7 @@ export function PlayButton({ action }: { action: PlayAction }) {
 
   return (
     // L'aimant agit sur ce conteneur (le bouton garde ses propres animations).
-    <div className="relative" data-magnetic={ready ? "0.1" : undefined} data-cursor-label={hot ? "Lancer" : undefined}>
+    <div className="relative" data-magnetic={ready ? "0.1" : undefined} data-cursor-label={hot ? t("cursor") : undefined}>
       {hot && <span aria-hidden className="absolute inset-0 animate-pulse-ring rounded-full bg-ruby/40" />}
       {action.href ? (
         <motion.a href={action.href} target="_blank" rel="noreferrer" className={className} {...motionProps}>

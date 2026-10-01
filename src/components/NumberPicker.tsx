@@ -5,6 +5,7 @@
 // un repère glisse d'une face à l'autre (layoutId de Framer Motion).
 
 import { motion } from "framer-motion";
+import { useTranslations } from "next-intl";
 import { GAME } from "@/lib/config";
 import { haptic, sparkBurstFrom } from "@/lib/fx";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
@@ -17,6 +18,7 @@ type NumberPickerProps = {
 };
 
 export function NumberPicker({ value, onChange, disabled }: NumberPickerProps) {
+  const t = useTranslations("picker");
   return (
     <ToggleGroup
       type="single"
@@ -24,7 +26,7 @@ export function NumberPicker({ value, onChange, disabled }: NumberPickerProps) {
       // Radix renvoie "" si on reclique sur le chiffre choisi : on garde alors le choix.
       onValueChange={(v) => v && onChange(Number(v))}
       disabled={disabled}
-      aria-label="Chiffre choisi"
+      aria-label={t("group")}
       className="grid grid-cols-6 gap-2 sm:gap-2.5"
     >
       {GAME.faces.map((face) => {
@@ -33,7 +35,7 @@ export function NumberPicker({ value, onChange, disabled }: NumberPickerProps) {
           <ToggleGroupItem
             key={face}
             value={String(face)}
-            aria-label={`Chiffre ${face}`}
+            aria-label={t("face", { face })}
             onClick={(e) => {
               sparkBurstFrom(e.currentTarget, { count: 10, spread: 50 });
               haptic(8);

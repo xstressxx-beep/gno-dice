@@ -2,9 +2,11 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { useTranslations } from "next-intl";
 import { motion, useMotionValueEvent, useScroll, useSpring } from "framer-motion";
 import { config } from "@/lib/config";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { LanguageSwitcher } from "./LanguageSwitcher";
 import { MotionToggle } from "./MotionToggle";
 import { WalletButton } from "./WalletButton";
 
@@ -14,6 +16,7 @@ import { WalletButton } from "./WalletButton";
  * - un filet rubis en bas indique la progression dans la page
  */
 export function Header() {
+  const t = useTranslations("header");
   const { scrollY, scrollYProgress } = useScroll();
   const progress = useSpring(scrollYProgress, { stiffness: 200, damping: 30, restDelta: 0.001 });
   const [hidden, setHidden] = useState(false);
@@ -32,7 +35,7 @@ export function Header() {
       className={`sticky top-0 z-40 transition-colors duration-500 ${scrolled ? "bg-lapis/80 backdrop-blur-xl" : "bg-transparent"}`}
     >
       <div className="page-container flex h-16 items-center justify-between gap-3 sm:h-[72px]">
-        <Link href="/" aria-label="GNO-DICE, accueil" className="group flex shrink-0 items-center gap-2.5 text-chalk no-underline hover:text-chalk hover:no-underline">
+        <Link href="/" aria-label={t("home")} className="group flex shrink-0 items-center gap-2.5 text-chalk no-underline hover:text-chalk hover:no-underline">
           {/* Le logo : un petit dé rubis qui fait un demi-tour au survol */}
           <span
             aria-hidden
@@ -54,8 +57,9 @@ export function Header() {
                 {config.chainName}
               </span>
             </TooltipTrigger>
-            <TooltipContent>Réseau : {config.chainId}</TooltipContent>
+            <TooltipContent>{t("network", { chainId: config.chainId })}</TooltipContent>
           </Tooltip>
+          <LanguageSwitcher />
           <MotionToggle />
           <span data-magnetic="0.2" className="inline-flex min-w-0">
             <WalletButton />

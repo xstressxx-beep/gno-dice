@@ -10,6 +10,7 @@
 import dynamic from "next/dynamic";
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { AnimatePresence, motion } from "framer-motion";
+import { useTranslations } from "next-intl";
 import { useReducedMotionPref } from "@/lib/motion";
 import { haptic } from "@/lib/fx";
 import type { Impact, SceneFx } from "./DieScene";
@@ -31,6 +32,7 @@ type DieStageProps = {
 type Sound = { id: number; word: string; x: number; y: number; strength: number; tilt: number };
 
 export function DieStage({ face, rolling, outcome, fx, allowToy, onImpact, onLanded, caption }: DieStageProps) {
+  const t = useTranslations("stage");
   const reduceMotion = useReducedMotionPref();
   const wrap = useRef<HTMLDivElement>(null);
   const [active, setActive] = useState(true);
@@ -51,13 +53,13 @@ export function DieStage({ face, rolling, outcome, fx, allowToy, onImpact, onLan
       haptic(Math.round(8 + 22 * strength));
       onImpact?.(strength);
       if (strength < 0.18) return;
-      const word = strength > 0.7 ? "clac" : strength > 0.4 ? "toc" : "tic";
+      const word = strength > 0.7 ? t("hard") : strength > 0.4 ? t("medium") : t("soft");
       const id = performance.now();
       setSounds((list) => [...list.slice(-3), { id, word, x, y, strength, tilt: (Math.random() - 0.5) * 24 }]);
       // Retiré une fois son animation finie
       window.setTimeout(() => setSounds((list) => list.filter((s) => s.id !== id)), 1200);
     },
-    [onImpact],
+    [onImpact, t],
   );
 
   const handleToy = useCallback((landed: number) => {
@@ -72,7 +74,7 @@ export function DieStage({ face, rolling, outcome, fx, allowToy, onImpact, onLan
   }, [toy]);
 
   return (
-    <div ref={wrap} className="relative" data-cursor-label={allowToy ? "Lance-le" : undefined}>
+    <div ref={wrap} className="relative" data-cursor-label={allowToy ? t("cursor") : undefined}>
       <div
         className="relative aspect-square w-full sm:aspect-[6/5] lg:aspect-auto lg:h-[min(80svh,780px)]"
         // Bords adoucis : la scène se fond dans la page, sans cadre visible
@@ -140,9 +142,9 @@ export function DieStage({ face, rolling, outcome, fx, allowToy, onImpact, onLan
               exit={{ opacity: 0, y: -8 }}
               transition={{ duration: 0.45, ease: [0.16, 1, 0.3, 1] }}
             >
-              Lancer d&apos;essai
+              {t("practice")}
               <span className="display-soft text-[2.75rem] leading-none text-chalk">{toy.face}</span>
-              rien n&apos;est misé
+              {t("nothingBet")}
             </motion.p>
           ) : (
             <motion.div key="caption" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.3 }}>
@@ -157,8 +159,9 @@ export function DieStage({ face, rolling, outcome, fx, allowToy, onImpact, onLan
 
 /** Pendant le chargement de la 3D : le contour d'un dé se dessine. */
 function StageLoader() {
+  const t = useTranslations("stage");
   return (
-    <div className="absolute inset-0 grid place-items-center" role="status" aria-label="Chargement du dé">
+    <div className="absolute inset-0 grid place-items-center" role="status" aria-label={t("loading")}>
       <svg viewBox="0 0 100 100" className="size-16">
         <motion.rect
           x="10"

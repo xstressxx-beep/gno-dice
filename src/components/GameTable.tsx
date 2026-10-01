@@ -9,6 +9,8 @@
 import { useCallback, useEffect, useRef, useState, type MouseEvent, type ReactNode } from "react";
 import { AnimatePresence, motion, useAnimationControls, useScroll, useTransform } from "framer-motion";
 import { Info, Timer } from "lucide-react";
+import { useLocale, useTranslations } from "next-intl";
+import { useErrorText } from "@/i18n/errors";
 import { ADENA_DOWNLOAD_URL, sendTransaction } from "@/lib/adena";
 import { config, FIRST_GAME_DEPOSIT_UGNOT, GAME, GAS, NEXT_GAME_DEPOSIT_UGNOT } from "@/lib/config";
 import { haptic, RUBY, sparkBurstFrom } from "@/lib/fx";
@@ -52,9 +54,12 @@ const EASE = [0.16, 1, 0.3, 1] as const;
 
 const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
-const TITLE = ["Six faces.", "Une seule", "est la tienne."];
-
 export function GameTable({ info, player, status, clockOffset, refresh }: Props) {
+  const t = useTranslations("game");
+  const locale = useLocale();
+  const errorText = useErrorText();
+  // Le titre en 3 lignes (chaque ligne glisse à son tour)
+  const TITLE = [t("title1"), t("title2"), t("title3")];
   const wallet = useWallet();
   const now = useNow();
   const introDone = useIntroDone();
@@ -154,19 +159,19 @@ export function GameTable({ info, player, status, clockOffset, refresh }: Props)
       const salt = randomHex32();
       const commit = await commitment(address, chosen, salt);
       if (!saveSecret({ player: address, commitment: commit, guess: chosen, salt })) {
-        throw new Error("Ton navigateur bloque le stockage local : impossible de garder ton chiffre secret. Autorise-le pour jouer.");
+        throw new Error(t("errStorage"));
       }
 
       const currentFee = await estimateFee(GAS.play);
       const tx = await sendTransaction([playMessage(address, commit, betUgnot)], GAS.play, currentFee);
       const id = parsePlayId(tx.returned) ?? (await findOpenGameId(address, commit));
-      if (!id) throw new Error("Mise envoyée, mais le numéro de partie est introuvable. Elle apparaîtra dans « Partie en cours ».");
+      if (!id) throw new Error(t("errNoId"));
       setSecretId(commit, id);
 
       const rolled = await waitForRoll(id);
       // Vérification indépendante : le dé doit correspondre à la graine publiée.
       if ((await rollFor(rolled.seed, rolled.commitment, rolled.id)) !== rolled.roll) {
-        throw new Error("Le tirage publié ne correspond pas à sa graine. Partie signalée, ne rejoue pas avant vérification.");
+        throw new Error(t("errSeed"));
       }
 
       const won = rolled.roll === chosen;
@@ -203,9 +208,7 @@ export function GameTable({ info, player, status, clockOffset, refresh }: Props)
       const game = await fetchGame(id).catch(() => null);
       if (game && game.status !== "pending") return game;
     }
-    throw new Error(
-      "Le croupier ne répond pas pour le moment. Ta mise est en sécurité : si le dé n'est pas tiré dans les 30 minutes, tu pourras la récupérer (« Partie en cours »).",
-    );
+    throw new Error(t("errCroupier"));
   }
 
   /** Termine la partie : révélation relayée par le croupier, ou signée par le joueur en secours. */
@@ -247,22 +250,22 @@ export function GameTable({ info, player, status, clockOffset, refresh }: Props)
 
   // --- Bouton principal : son texte et son action dépendent de la situation ---
   let action: PlayAction;
-  if (status === "absent") action = { label: "Contrat pas encore déployé", disabled: true };
-  else if (status === "inert") action = { label: "Activation du contrat…", disabled: true };
-  else if (status === "loading") action = { label: "Chargement du jeu", disabled: true, busy: true };
-  else if (!info) action = { label: "Réseau Gno injoignable", disabled: true };
-  else if (wallet.status === "no-extension") action = { label: "Installer Adena pour jouer", href: ADENA_DOWNLOAD_URL };
+  if (status === "absent") action = { label: t("btnAbsent"), disabled: true };
+  else if (status === "inert") action = { label: t("btnInert"), disabled: true };
+  else if (status === "loading") action = { label: t("btnLoading"), disabled: true, busy: true };
+  else if (!info) action = { label: t("btnUnreachable"), disabled: true };
+  else if (wallet.status === "no-extension") action = { label: t("btnInstall"), href: ADENA_DOWNLOAD_URL };
   else if (wallet.status !== "connected")
-    action = { label: "Connecter Adena pour jouer", onClick: wallet.connect, disabled: wallet.status === "connecting" || wallet.status === "checking" };
-  else if (wallet.wrongNetwork) action = { label: `Passer sur ${config.chainName}`, onClick: wallet.switchNetwork };
-  else if (pending) action = { label: "Le dé roule", disabled: true, busy: true };
-  else if (info.paused) action = { label: "Jeu en pause", disabled: true };
-  else if (cooldownLeft > 0) action = { label: `Prochain lancer dans ${formatCountdown(cooldownLeft)}`, disabled: true };
-  else if (guess === null) action = { label: "Choisis d'abord un chiffre", disabled: true };
+    action = { label: t("btnConnect"), onClick: wallet.connect, disabled: wallet.status === "connecting" || wallet.status === "checking" };
+  else if (wallet.wrongNetwork) action = { label: t("btnSwitch", { chain: config.chainName }), onClick: wallet.switchNetwork };
+  else if (pending) action = { label: t("btnRolling"), disabled: true, busy: true };
+  else if (info.paused) action = { label: t("btnPaused"), disabled: true };
+  else if (cooldownLeft > 0) action = { label: t("btnCooldown", { time: formatCountdown(cooldownLeft) }), disabled: true };
+  else if (guess === null) action = { label: t("btnPick"), disabled: true };
   else if (bet > maxCoverable)
-    action = { label: maxCoverable >= minBet ? `Mise max possible : ${maxCoverable} GNOT` : "La banque est vide", disabled: true };
-  else if (notEnoughFunds) action = { label: "Solde insuffisant", disabled: true };
-  else action = { label: `Lancer pour ${bet} GNOT`, onClick: launch, primary: true };
+    action = { label: maxCoverable >= minBet ? t("btnMaxBet", { max: maxCoverable }) : t("btnBankEmpty"), disabled: true };
+  else if (notEnoughFunds) action = { label: t("btnFunds"), disabled: true };
+  else action = { label: t("btnRoll", { bet }), onClick: launch, primary: true };
 
   // --- Raccourcis clavier ---
   const keys = useRef({ action, pending, minBet, maxBet });
@@ -297,7 +300,7 @@ export function GameTable({ info, player, status, clockOffset, refresh }: Props)
   if (pending) {
     caption = (
       <motion.p key="pending" {...fade} className="max-w-sm text-[0.95rem] text-haze">
-        Signe dans Adena. Le dé tourne tant que la blockchain n&apos;a pas répondu.
+        {t("captionPending")}
       </motion.p>
     );
   } else if (outcome && !revealed) {
@@ -306,26 +309,26 @@ export function GameTable({ info, player, status, clockOffset, refresh }: Props)
     caption = (
       <motion.div key="win" {...fade} className="flex flex-col items-center">
         <p className="display-soft text-[clamp(2.4rem,5vw,3.5rem)] leading-none text-chalk">
-          +<AnimatedNumber value={outcome.payout} from={0} speed="slow" format={(n) => formatGnot(n)} /> GNOT
+          +<AnimatedNumber value={outcome.payout} from={0} speed="slow" format={(n) => formatGnot(n, 2, locale)} /> GNOT
         </p>
         <p className="mt-2 text-[0.95rem] text-haze">
-          Le dé est tombé sur ton {outcome.roll}.{" "}
-          {settlement === "done" ? "Gain versé sur ton wallet." : settlement === "manual" ? "Encaisse ton gain ci-dessous." : "Versement en cours…"}
+          {t("landedOnYours", { roll: outcome.roll })}{" "}
+          {settlement === "done" ? t("paid") : settlement === "manual" ? t("claimBelow") : t("paying")}
         </p>
       </motion.div>
     );
   } else if (outcome) {
     caption = (
       <motion.div key="lose" {...fade} className="flex flex-col items-center">
-        <p className="display-soft text-[clamp(2rem,4vw,2.75rem)] leading-none text-chalk/80">Tombé sur le {outcome.roll}.</p>
-        <p className="mt-2 text-[0.95rem] text-haze">Tu avais choisi le {outcome.guess}. Prochain lancer dans 10 minutes.</p>
+        <p className="display-soft text-[clamp(2rem,4vw,2.75rem)] leading-none text-chalk/80">{t("landedOn", { roll: outcome.roll })}</p>
+        <p className="mt-2 text-[0.95rem] text-haze">{t("youPicked", { guess: outcome.guess })}</p>
       </motion.div>
     );
   } else {
     caption = (
       <motion.p key="idle" {...fade} className="max-w-xs text-[0.95rem] text-haze">
-        <span className="hidden [@media(hover:hover)]:inline">Attrape le dé et lance-le pour un essai. Rien n&apos;est misé.</span>
-        <span className="[@media(hover:hover)]:hidden">Fais glisser le dé pour un essai. Rien n&apos;est misé.</span>
+        <span className="hidden [@media(hover:hover)]:inline">{t("idleMouse")}</span>
+        <span className="[@media(hover:hover)]:hidden">{t("idleTouch")}</span>
       </motion.p>
     );
   }
@@ -344,7 +347,7 @@ export function GameTable({ info, player, status, clockOffset, refresh }: Props)
           className="font-display text-[clamp(3rem,7vw,6.25rem)] leading-[0.92] tracking-[-0.035em] text-chalk"
         >
           {TITLE.map((line, i) => (
-            <span key={line} className="block overflow-hidden pb-[0.08em]">
+            <span key={i} className="block overflow-hidden pb-[0.08em]">
               <motion.span
                 className="block"
                 initial={{ y: "105%" }}
@@ -362,8 +365,7 @@ export function GameTable({ info, player, status, clockOffset, refresh }: Props)
           transition={{ duration: 1, delay: 0.55 }}
           className="mt-6 max-w-[46ch] text-[1.05rem] leading-relaxed text-haze sm:text-lg"
         >
-          Choisis un chiffre, mise de {GAME.minBetGnot} à {GAME.maxBetGnot} GNOT et lance. Si le dé tombe sur ton chiffre, tu repars avec{" "}
-          {multiplier} fois ta mise. Tout se joue sur Gno.land, à la vue de tous.
+          {t("intro", { min: GAME.minBetGnot, max: GAME.maxBetGnot, multiplier })}
         </motion.p>
       </div>
 
@@ -396,27 +398,27 @@ export function GameTable({ info, player, status, clockOffset, refresh }: Props)
         transition={{ duration: 1, ease: EASE, delay: 0.7 }}
       >
         <div className="flex flex-col gap-3">
-          <ControlLabel hint="1 à 6">Ton chiffre</ControlLabel>
+          <ControlLabel hint={t("yourNumberHint")}>{t("yourNumber")}</ControlLabel>
           <NumberPicker value={guess} onChange={setGuess} disabled={pending} />
         </div>
 
         <div className="flex flex-col gap-3">
-          <ControlLabel hint="+ −">Ta mise</ControlLabel>
+          <ControlLabel hint="+ −">{t("yourBet")}</ControlLabel>
           <BetControl value={bet} min={minBet} max={maxBet} onChange={setBet} disabled={pending} />
           <p className="flex flex-wrap items-baseline gap-x-2 gap-y-1 text-sm text-haze">
-            Gain si tu tombes juste
+            {t("winIfRight")}
             <strong className="display-soft text-2xl font-normal text-chalk">
               <AnimatedNumber value={bet * multiplier} /> GNOT
             </strong>
             <Tooltip>
               <TooltipTrigger asChild>
                 <button type="button" className="inline-flex items-center gap-1 text-xs text-haze underline-offset-2 hover:text-chalk hover:underline">
-                  <Info className="size-3.5" /> frais
+                  <Info className="size-3.5" /> {t("fees")}
                 </button>
               </TooltipTrigger>
               <TooltipContent>
-                Frais réseau ≈ {formatGnot(fee, 3)} GNOT
-                {firstGame ? " (+ ~0,85 GNOT de dépôt de stockage à ta 1re partie)" : " (+ un petit dépôt de stockage)"}
+                {t("networkFee", { fee: formatGnot(fee, 3, locale) })}
+                {firstGame ? t("firstDeposit") : t("nextDeposit")}
               </TooltipContent>
             </Tooltip>
           </p>
@@ -428,10 +430,13 @@ export function GameTable({ info, player, status, clockOffset, refresh }: Props)
 
         {cooldownLeft > 0 && (
           <div className="flex flex-col gap-2" aria-live="polite">
-            <Progress value={Math.round(cooldownProgress * 100)} aria-label="Temps avant le prochain lancer" />
+            <Progress value={Math.round(cooldownProgress * 100)} aria-label={t("cooldownAria")} />
             <p className="flex items-center gap-2 text-sm text-haze">
               <Timer className="size-4 text-signal" />
-              Un lancer toutes les 10 minutes. Reviens dans <strong className="tabular-nums text-chalk">{formatCountdown(cooldownLeft)}</strong>
+              {t.rich("cooldown", {
+                time: formatCountdown(cooldownLeft),
+                strong: (chunks) => <strong className="tabular-nums text-chalk">{chunks}</strong>,
+              })}
             </p>
           </div>
         )}
@@ -440,16 +445,19 @@ export function GameTable({ info, player, status, clockOffset, refresh }: Props)
           <OpenGames games={player.open} onChange={() => (refresh(), wallet.refreshBalance())} highlightManual={settlement === "manual"} />
         )}
 
-        {txError && <Alert variant="destructive">{txError}</Alert>}
-        {wallet.error && <Alert variant="destructive">{wallet.error}</Alert>}
+        {txError && <Alert variant="destructive">{errorText(txError)}</Alert>}
+        {wallet.error && <Alert variant="destructive">{errorText(wallet.error)}</Alert>}
         {notEnoughFunds && wallet.status === "connected" && !wallet.wrongNetwork && config.faucetUrl && (
           <Alert variant="info">
-            Il te faut au moins {formatGnot(needed)} GNOT (mise + frais{firstGame ? " + dépôt de 1re partie" : ""}). Sur le testnet, tu peux
-            obtenir des GNOT gratuits sur le{" "}
-            <a href={config.faucetUrl} target="_blank" rel="noreferrer">
-              faucet
-            </a>
-            .
+            {t.rich("needFunds", {
+              amount: formatGnot(needed, 2, locale),
+              first: String(firstGame),
+              link: (chunks) => (
+                <a href={config.faucetUrl} target="_blank" rel="noreferrer">
+                  {chunks}
+                </a>
+              ),
+            })}
           </Alert>
         )}
       </motion.div>
