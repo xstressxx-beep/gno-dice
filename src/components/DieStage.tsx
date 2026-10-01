@@ -74,11 +74,11 @@ export function DieStage({ face, rolling, outcome, fx, allowToy, onImpact, onLan
   return (
     <div ref={wrap} className="relative" data-cursor-label={allowToy ? "Lance-le" : undefined}>
       <div
-        className="relative aspect-[5/4] w-full sm:aspect-[6/5]"
+        className="relative aspect-square w-full sm:aspect-[6/5] lg:aspect-auto lg:h-[min(80svh,780px)]"
         // Bords adoucis : la scène se fond dans la page, sans cadre visible
         style={{
-          maskImage: "radial-gradient(ellipse 62% 60% at 50% 50%, #000 45%, transparent 100%)",
-          WebkitMaskImage: "radial-gradient(ellipse 62% 60% at 50% 50%, #000 45%, transparent 100%)",
+          maskImage: "radial-gradient(ellipse 75% 72% at 50% 50%, #000 70%, transparent 100%)",
+          WebkitMaskImage: "radial-gradient(ellipse 75% 72% at 50% 50%, #000 70%, transparent 100%)",
         }}
       >
         <DieScene

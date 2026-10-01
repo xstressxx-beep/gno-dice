@@ -44,9 +44,16 @@ export type DieSceneProps = {
 // --- Réglages physiques (unités : 1 = un côté de dé) ---
 const GRAVITY = 26;
 const BOUNCE = 0.36;
-const BOUNDS = { x: 1.9, z: 1.15 };
-const CAMERA = new THREE.Vector3(0, 2.7, 4.3);
-const LOOK_AT = new THREE.Vector3(0, 0.45, 0);
+// Zone de jeu du dé : bords et plafond invisibles, choisis pour qu'il reste
+// toujours entièrement visible à l'écran, même lancé fort.
+const BOUNDS = { x: 1.35, z: 0.95 };
+const CEILING = 2.3;
+// Caméra : proche au repos (le dé paraît grand), plus loin pendant un lancer
+// (il a de la place pour voler et rebondir sans sortir du cadre).
+const CAMERA = new THREE.Vector3(0, 2.5, 4.4);
+const CAMERA_WIDE = new THREE.Vector3(0, 3.5, 6.6);
+const LOOK_AT = new THREE.Vector3(0, 0.55, 0);
+const LOOK_AT_WIDE = new THREE.Vector3(0, 0.95, 0);
 
 type Mode = "idle" | "held" | "hover" | "free" | "settle" | "rest";
 
@@ -56,7 +63,7 @@ export default function DieScene(props: DieSceneProps) {
       frameloop={props.active ? "always" : "never"}
       dpr={[1, 1.75]}
       gl={{ alpha: true, antialias: true, powerPreference: "high-performance" }}
-      camera={{ position: CAMERA.toArray(), fov: 30, near: 0.1, far: 50 }}
+      camera={{ position: CAMERA.toArray(), fov: 34, near: 0.1, far: 50 }}
       onCreated={({ camera }) => camera.lookAt(LOOK_AT)}
       style={{ touchAction: "pan-y" }}
     >
@@ -109,6 +116,7 @@ function World({ face, rolling, outcome, fx, allowToy, reduceMotion, onImpact, o
     lastPos: new THREE.Vector3(),
     heldVel: new THREE.Vector3(),
     shake: 0,
+    zoom: 0, // 0 = caméra proche, 1 = caméra éloignée (dé en vol)
     ripples: [] as THREE.Vector4[],
     flashAt: -10,
     lossAt: -10,
@@ -260,6 +268,11 @@ function World({ face, rolling, outcome, fx, allowToy, reduceMotion, onImpact, o
           st.pos.z = Math.sign(st.pos.z) * BOUNDS.z;
           st.vel.z *= -0.55;
         }
+        // Plafond : un lancer trop fort redescend au lieu de sortir de l'écran
+        if (st.pos.y > CEILING) {
+          st.pos.y = CEILING;
+          st.vel.y = -Math.abs(st.vel.y) * 0.3;
+        }
 
         // Le tapis
         const h = restHeight(st.quat);
@@ -329,14 +342,20 @@ function World({ face, rolling, outcome, fx, allowToy, reduceMotion, onImpact, o
       die.quaternion.copy(st.quat);
     }
 
-    // Caméra : légère parallaxe à la souris + tremblement aux chocs
+    // Caméra : recule en douceur quand le dé vole, se rapproche quand il est posé.
+    const moving = st.mode === "held" || st.mode === "free" || st.mode === "settle" || st.mode === "hover";
+    st.zoom += ((moving ? 1 : 0) - st.zoom) * (1 - Math.exp(-(moving ? 4 : 1.5) * dt));
+    // Écran étroit (téléphone en portrait) : on recule davantage pour garder les bords visibles
+    const narrow = Math.max(1, 1.15 / Math.max(0.5, state.size.width / Math.max(1, state.size.height)));
+    tmp.v.lerpVectors(CAMERA, CAMERA_WIDE, st.zoom);
+    tmp.v.sub(LOOK_AT).multiplyScalar(narrow).add(LOOK_AT);
     st.shake *= Math.exp(-9 * dt);
     camera.position.set(
-      CAMERA.x + pointer.x * 0.25 + (Math.random() - 0.5) * st.shake,
-      CAMERA.y + pointer.y * 0.12 + (Math.random() - 0.5) * st.shake,
-      CAMERA.z,
+      tmp.v.x + pointer.x * 0.25 + (Math.random() - 0.5) * st.shake,
+      tmp.v.y + pointer.y * 0.12 + (Math.random() - 0.5) * st.shake,
+      tmp.v.z,
     );
-    camera.lookAt(LOOK_AT);
+    camera.lookAt(tmp.hit.lerpVectors(LOOK_AT, LOOK_AT_WIDE, st.zoom));
 
     // Tapis : temps, ondes de choc, vague de victoire, voile de défaite
     const felt = feltRef.current;

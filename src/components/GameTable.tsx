@@ -334,7 +334,7 @@ export function GameTable({ info, player, status, clockOffset, refresh }: Props)
     <section
       ref={sectionRef}
       aria-labelledby="table-title"
-      className="relative grid items-center gap-x-10 gap-y-6 pb-10 pt-6 [grid-template-areas:'head'_'stage'_'ctrl'] sm:pt-10 lg:min-h-[calc(100svh-72px)] lg:grid-cols-[minmax(0,1.05fr)_minmax(0,1fr)] lg:gap-y-10 lg:[grid-template-areas:'head_stage'_'ctrl_stage']"
+      className="relative grid items-center gap-x-10 gap-y-6 pb-10 pt-6 [grid-template-areas:'head'_'stage'_'ctrl'] sm:pt-10 lg:min-h-[calc(100svh-72px)] lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.2fr)] lg:gap-y-10 lg:[grid-template-areas:'head_stage'_'ctrl_stage']"
     >
       {/* Titre */}
       <div className="[grid-area:head] lg:self-end">
