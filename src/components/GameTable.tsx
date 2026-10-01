@@ -334,7 +334,7 @@ export function GameTable({ info, player, status, clockOffset, refresh }: Props)
     <section
       ref={sectionRef}
       aria-labelledby="table-title"
-      className="relative grid items-center gap-x-10 gap-y-6 pb-10 pt-6 [grid-template-areas:'head'_'stage'_'ctrl'] sm:pt-10 lg:min-h-[calc(100svh-72px)] lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.2fr)] lg:gap-y-10 lg:[grid-template-areas:'head_stage'_'ctrl_stage']"
+      className="relative grid items-center gap-x-12 gap-y-10 pb-16 pt-8 [grid-template-areas:'head'_'stage'_'ctrl'] sm:pt-10 lg:min-h-[calc(100svh-72px)] lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.2fr)] lg:gap-y-14 lg:[grid-template-areas:'head_stage'_'ctrl_stage']"
     >
       {/* Titre */}
       <div className="[grid-area:head] lg:self-end">
@@ -390,7 +390,7 @@ export function GameTable({ info, player, status, clockOffset, refresh }: Props)
 
       {/* Commandes */}
       <motion.div
-        className="flex flex-col gap-7 [grid-area:ctrl] lg:self-start"
+        className="flex flex-col gap-9 [grid-area:ctrl] lg:self-start"
         initial={{ opacity: 0, y: 16 }}
         animate={introDone ? { opacity: 1, y: 0 } : undefined}
         transition={{ duration: 1, ease: EASE, delay: 0.7 }}

@@ -8,10 +8,11 @@ import { Alert } from "@/components/ui/alert";
 import { BankPanel } from "./BankPanel";
 import { GameTable } from "./GameTable";
 import { History } from "./History";
+import { HowItWorks } from "./HowItWorks";
 import { RollTicker } from "./RollTicker";
 import { useWallet } from "./WalletProvider";
 
-/** La page de jeu : la table (en haut), le fil des lancers, puis la banque et l'historique. */
+/** La page de jeu : la table (en haut), le fil des lancers, « Comment ça marche », puis la banque et l'historique. */
 export function Casino() {
   const wallet = useWallet();
   const playerAddress = wallet.status === "connected" && !wallet.wrongNetwork ? wallet.address : null;
@@ -24,8 +25,8 @@ export function Casino() {
           <Alert variant="info" className="mt-4">
             <Info />
             <p>
-              <strong>Le contrat GNO-DICE n’est pas encore déployé sur {config.chainName}.</strong> Propriétaire du site : déploie-le depuis la
-              page <Link href="/admin">/admin</Link> avec ton wallet Adena.
+              <strong>Le contrat GNO-DICE n’est pas encore déployé sur {config.chainName}.</strong> Propriétaire du site : déploie-le depuis la page{" "}
+              <Link href="/admin">/admin</Link> avec ton wallet Adena.
             </p>
           </Alert>
         )}
@@ -50,14 +51,18 @@ export function Casino() {
 
       <RollTicker recent={game.info?.recent ?? []} />
 
-      <div className="page-container grid gap-10 py-16 sm:py-24 lg:grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)] lg:gap-16">
-        <BankPanel info={game.info} status={game.status} />
-        <History
-          player={game.player}
-          recent={game.info?.recent ?? []}
-          contractLive={game.status === "live"}
-          loading={playerAddress !== null && game.player === null && game.status !== "unreachable"}
-        />
+      <HowItWorks />
+
+      <div className="border-t border-border/70">
+        <div className="page-container grid gap-20 py-24 sm:py-32 lg:grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)] lg:gap-24">
+          <BankPanel info={game.info} status={game.status} />
+          <History
+            player={game.player}
+            recent={game.info?.recent ?? []}
+            contractLive={game.status === "live"}
+            loading={playerAddress !== null && game.player === null && game.status !== "unreachable"}
+          />
+        </div>
       </div>
     </>
   );

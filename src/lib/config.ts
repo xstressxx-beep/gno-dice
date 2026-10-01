@@ -20,7 +20,12 @@ export const config = {
   // Chemin du contrat : la variable NEXT_PUBLIC_GNODICE_REALM est prioritaire
   // (utile si le contrat est déployé avec un autre wallet).
   realmPath: (process.env.NEXT_PUBLIC_GNODICE_REALM || DEFAULT_REALM).trim(),
+  // Code source public du site et du contrat
+  repoUrl: "https://github.com/xstressxx-beep/gno-dice",
 };
+
+/** Page du contrat sur l'explorateur Gno.land (gnoweb). */
+export const contractUrl = `${config.gnowebUrl}/${config.realmPath.replace(/^gno\.land\//, "")}`;
 
 // Règles du jeu, identiques à celles du contrat (contract/gnodice/gnodice.gno).
 // Le site lit les vraies valeurs dans le contrat quand il est disponible.

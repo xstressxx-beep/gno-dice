@@ -2,7 +2,7 @@
 
 import type { ReactNode } from "react";
 import { PauseCircle } from "lucide-react";
-import { config, GAME } from "@/lib/config";
+import { contractUrl, GAME } from "@/lib/config";
 import { formatGnot } from "@/lib/format";
 import type { GameInfo } from "@/lib/gno";
 import type { ContractStatus } from "@/hooks/useGnodice";
@@ -27,8 +27,6 @@ const gnot = (n: number) => formatGnot(n);
 
 /** La banque du casino : ce qu'elle peut payer et ce qu'elle a déjà payé. */
 export function BankPanel({ info, status }: Props) {
-  const contractUrl = `${config.gnowebUrl}/${config.realmPath.replace(/^gno\.land\//, "")}`;
-
   return (
     <section aria-labelledby="bank-title" className="flex flex-col">
       <h2 id="bank-title" className="display-soft text-[clamp(2rem,4vw,3rem)] leading-none tracking-[-0.02em] text-chalk">

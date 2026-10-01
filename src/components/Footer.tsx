@@ -18,6 +18,7 @@ export function Footer() {
           </p>
         </div>
         <nav aria-label="Liens utiles" className="flex flex-wrap gap-x-6 gap-y-2">
+          <a href="#comment-ca-marche">Comment ça marche</a>
           {config.faucetUrl && (
             <a href={config.faucetUrl} target="_blank" rel="noreferrer">
               GNOT gratuits
