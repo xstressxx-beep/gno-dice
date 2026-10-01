@@ -1,10 +1,12 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useRef, useState, type MouseEvent, type ReactNode } from "react";
+import { motion, useAnimationControls } from "framer-motion";
 import { Info, Timer } from "lucide-react";
 import { ADENA_DOWNLOAD_URL, sendTransaction } from "@/lib/adena";
 import { config, FIRST_GAME_DEPOSIT_UGNOT, GAME, GAS, NEXT_GAME_DEPOSIT_UGNOT } from "@/lib/config";
 import { formatCountdown, formatGnot, UGNOT_PER_GNOT } from "@/lib/format";
+import { haptic, RED, sparkBurstFrom } from "@/lib/fx";
 import { estimateFee, type GameInfo, type PlayerInfo } from "@/lib/gno";
 import { parsePlayResult, playMessage } from "@/lib/gnodice";
 import type { ContractStatus } from "@/hooks/useGnodice";
@@ -18,6 +20,7 @@ import { BetControl } from "./BetControl";
 import { DiceStage, type Outcome } from "./DiceStage";
 import { NumberPicker } from "./NumberPicker";
 import { PlayButton, type PlayAction } from "./PlayButton";
+import { ScreenFlash, type Flash } from "./ScreenFlash";
 import { WinExplosion } from "./WinExplosion";
 import { useWallet } from "./WalletProvider";
 
@@ -49,6 +52,9 @@ export function GameTable({ info, player, status, clockOffset, refresh }: Props)
   const [winBurst, setWinBurst] = useState(0);
   const [txError, setTxError] = useState<string | null>(null);
   const [fee, setFee] = useState(DEFAULT_FEE_UGNOT);
+  const [flash, setFlash] = useState<Flash | null>(null);
+  // Secousse de la table (atterrissage du dé, victoire, défaite)
+  const shake = useAnimationControls();
 
   const dieRef = useRef<HTMLDivElement>(null);
   // Le lancer en cours et celui déjà dévoilé (pour ne fêter une victoire qu'une fois).
@@ -85,8 +91,30 @@ export function GameTable({ info, player, status, clockOffset, refresh }: Props)
     if (!current || revealedRef.current === current) return;
     revealedRef.current = current;
     setRevealed(true);
-    if (current.won) setWinBurst((n) => n + 1);
-  }, []);
+    setFlash({ kind: current.won ? "win" : "lose", id: Date.now() });
+    if (current.won) {
+      setWinBurst((n) => n + 1);
+      shake.start({ scale: [1, 1.015, 1], transition: { duration: 0.5, ease: "easeOut" } });
+    } else {
+      shake.start({ x: [0, -9, 8, -6, 4, 0], transition: { duration: 0.45 } });
+    }
+  }, [shake]);
+
+  // Chaque rebond du dé fait vibrer la table, d'autant plus fort que le choc est violent.
+  const impact = useCallback(
+    (strength: number) => {
+      shake.start({ y: [0, 3 * strength, 0], transition: { duration: 0.18, ease: "easeOut" } });
+      haptic(Math.round(10 + 20 * strength));
+    },
+    [shake],
+  );
+
+  /** Clic sur JOUER : étincelles rouges + vibration, puis le lancer. */
+  function launch(e?: MouseEvent<HTMLElement>) {
+    sparkBurstFrom(e?.currentTarget, { colors: RED, count: 18, spread: 110 });
+    haptic(20);
+    void play();
+  }
 
   async function play() {
     if (!wallet.address || guess === null) return;
@@ -149,9 +177,10 @@ export function GameTable({ info, player, status, clockOffset, refresh }: Props)
   else if (bet > maxCoverable)
     action = { label: maxCoverable >= minBet ? `Mise max possible : ${maxCoverable} GNOT` : "La banque est vide", disabled: true };
   else if (notEnoughFunds) action = { label: "Solde insuffisant", disabled: true };
-  else action = { label: `Jouer · ${bet} GNOT`, onClick: play };
+  else action = { label: `Jouer · ${bet} GNOT`, onClick: launch };
 
   return (
+    <motion.div animate={shake}>
     <Card className="overflow-hidden border-primary/30" aria-labelledby="table-title">
       <h2 id="table-title" className="sr-only">
         Table de jeu
@@ -164,9 +193,11 @@ export function GameTable({ info, player, status, clockOffset, refresh }: Props)
         guess={guess}
         multiplier={multiplier}
         onLanded={reveal}
+        onImpact={impact}
         dieRef={dieRef}
       />
       <WinExplosion burst={winBurst} originRef={dieRef} />
+      <ScreenFlash flash={flash} />
 
       <div className="flex flex-col gap-6 p-5 sm:p-7">
         {/* Étape 1 : le chiffre */}
@@ -230,6 +261,7 @@ export function GameTable({ info, player, status, clockOffset, refresh }: Props)
         )}
       </div>
     </Card>
+    </motion.div>
   );
 }
 

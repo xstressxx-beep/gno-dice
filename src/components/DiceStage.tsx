@@ -23,11 +23,13 @@ type DiceStageProps = {
   guess: number | null;
   multiplier: number;
   onLanded: () => void;
+  /** Chaque rebond du dé (force de 0 à 1). */
+  onImpact?: (strength: number) => void;
   /** Référence vers le dé (point de départ de l'explosion dorée). */
   dieRef: RefObject<HTMLDivElement | null>;
 };
 
-export function DiceStage({ pending, outcome, revealed, guess, multiplier, onLanded, dieRef }: DiceStageProps) {
+export function DiceStage({ pending, outcome, revealed, guess, multiplier, onLanded, onImpact, dieRef }: DiceStageProps) {
   const won = revealed && !!outcome?.won;
   const dieFace = outcome?.roll ?? guess ?? 5;
 
@@ -97,7 +99,7 @@ export function DiceStage({ pending, outcome, revealed, guess, multiplier, onLan
 
       <div className="relative flex flex-col items-center px-4 pb-5 pt-7 sm:pt-9">
         <div ref={dieRef}>
-          <Dice3D value={dieFace} rolling={pending} gold={won} onLanded={onLanded} className="[--die:86px] sm:[--die:116px]" />
+          <Dice3D value={dieFace} rolling={pending} gold={won} onLanded={onLanded} onImpact={onImpact} className="[--die:86px] sm:[--die:116px]" />
         </div>
 
         <div className="-mt-3 flex items-end gap-4 sm:gap-7">

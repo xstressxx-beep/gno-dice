@@ -8,6 +8,7 @@ import { Alert } from "@/components/ui/alert";
 import { BankPanel } from "./BankPanel";
 import { GameTable } from "./GameTable";
 import { History } from "./History";
+import { Reveal } from "./Reveal";
 import { useWallet } from "./WalletProvider";
 
 /** Assemble la page de jeu : table, banque et historique partagent les mêmes données. */
@@ -44,16 +45,22 @@ export function Casino() {
       )}
 
       <div className="grid items-start gap-5 lg:grid-cols-[minmax(0,1.7fr)_minmax(0,1fr)] lg:gap-6">
-        <GameTable info={game.info} player={game.player} status={game.status} clockOffset={game.clockOffset} refresh={game.refresh} />
-        <BankPanel info={game.info} status={game.status} />
+        <Reveal>
+          <GameTable info={game.info} player={game.player} status={game.status} clockOffset={game.clockOffset} refresh={game.refresh} />
+        </Reveal>
+        <Reveal delay={0.12}>
+          <BankPanel info={game.info} status={game.status} />
+        </Reveal>
       </div>
 
-      <History
-        player={game.player}
-        recent={game.info?.recent ?? []}
-        contractLive={game.status === "live"}
-        loading={playerAddress !== null && game.player === null && game.status !== "unreachable"}
-      />
+      <Reveal>
+        <History
+          player={game.player}
+          recent={game.info?.recent ?? []}
+          contractLive={game.status === "live"}
+          loading={playerAddress !== null && game.player === null && game.status !== "unreachable"}
+        />
+      </Reveal>
     </div>
   );
 }

@@ -1,4 +1,4 @@
-import { useId } from "react";
+import { useId, type CSSProperties } from "react";
 
 // Position des points (sur un carré de 100 x 100) pour chaque face du dé.
 // Aussi utilisé par le dé 3D (Dice3D.tsx).
@@ -17,12 +17,13 @@ type DieProps = {
   /** ivory : dé classique, gold : dé sélectionné */
   variant?: "ivory" | "gold";
   className?: string;
+  style?: CSSProperties;
   /** Texte lu par les lecteurs d'écran ; sans titre, le dé est décoratif. */
   label?: string;
 };
 
 /** Une face de dé dessinée en SVG. */
-export function Die({ value, size = 64, variant = "ivory", className, label }: DieProps) {
+export function Die({ value, size = 64, variant = "ivory", className, style, label }: DieProps) {
   const id = useId();
   const face = PIPS[value] ?? PIPS[1];
   const gold = variant === "gold";
@@ -33,6 +34,7 @@ export function Die({ value, size = 64, variant = "ivory", className, label }: D
       height={size}
       viewBox="0 0 100 100"
       className={className}
+      style={style}
       role={label ? "img" : undefined}
       aria-label={label}
       aria-hidden={label ? undefined : true}

@@ -1,14 +1,17 @@
 "use client";
 
-// Le grand dé en 3D, animé avec Framer Motion.
+// Le grand dé en 3D, animé avec Framer Motion (+ React Spring pour l'inclinaison).
 // C'est un vrai cube CSS : 6 faces placées dans l'espace (FACE_TRANSFORMS),
 // puis on fait tourner le cube entier sur deux axes (rotateX / rotateY).
-// - pendant un lancer : il tourne et rebondit sans s'arrêter
+// - pendant un lancer : il tourne et rebondit sans s'arrêter (vitesse différente à chaque fois)
 // - à la fin : il fait encore 2 tours, rebondit et se pose sur la bonne face
-// - au repos : il flotte doucement et pivote vers le chiffre choisi
+// - à chaque rebond : il s'écrase un peu, soulève de la poussière dorée et
+//   prévient la table (`onImpact`) pour qu'elle tremble
+// - au repos : il flotte doucement, pivote vers le chiffre choisi et s'incline vers la souris
 
-import { useEffect, useRef, type CSSProperties } from "react";
-import { animate, motion, useMotionValue, useReducedMotion, useTransform } from "framer-motion";
+import { useEffect, useRef, useState, type CSSProperties } from "react";
+import { animate, AnimatePresence, motion, useMotionValue, useReducedMotion, useTransform } from "framer-motion";
+import { animated, to, useSpring } from "@react-spring/web";
 import { FACE_ROTATIONS, FACE_TRANSFORMS, FACES, landingRotation } from "@/lib/dice";
 import { cn } from "@/lib/utils";
 import { PIPS } from "./Die";
@@ -22,6 +25,8 @@ type Dice3DProps = {
   gold?: boolean;
   /** Appelé quand le dé s'est posé après un lancer. */
   onLanded?: () => void;
+  /** Appelé à chaque rebond, avec la force du choc (0 à 1). */
+  onImpact?: (strength: number) => void;
   className?: string;
 };
 
@@ -30,6 +35,15 @@ const TILT = "rotateX(-24deg) rotateY(-32deg)";
 
 // Courbe de ralentissement de l'atterrissage : très rapide puis très douce.
 const LANDING_EASE = [0.1, 0.75, 0.2, 1] as const;
+
+// Rebonds de l'atterrissage : durée totale et instants (0 à 1) où le dé touche le tapis.
+const BOUNCE_DURATION = 1.25;
+const BOUNCE_TIMES = [0, 0.22, 0.48, 0.64, 0.8, 0.9, 1];
+const CONTACTS = [
+  { at: 0.48, strength: 1 },
+  { at: 0.8, strength: 0.45 },
+  { at: 1, strength: 0.15 },
+];
 
 const FACE_STYLE = {
   ivory: {
@@ -54,7 +68,7 @@ function pipStyle(face: number, gold: boolean): string {
  * La taille vient de la variable CSS `--die` (120px par défaut), modifiable
  * avec une classe, ex. `[--die:96px] sm:[--die:124px]` : le dé s'adapte au mobile.
  */
-export function Dice3D({ value, rolling, gold = false, onLanded, className }: Dice3DProps) {
+export function Dice3D({ value, rolling, gold = false, onLanded, onImpact, className }: Dice3DProps) {
   const reduceMotion = useReducedMotion();
 
   // Valeurs animées : rotation du cube (en degrés) et hauteur du saut (en px).
@@ -62,16 +76,41 @@ export function Dice3D({ value, rolling, gold = false, onLanded, className }: Di
   const rotateX = useMotionValue(start.x);
   const rotateY = useMotionValue(start.y);
   const lift = useMotionValue(0);
+  // Écrasement au contact du tapis (1 = forme normale) : plus bas, plus large.
+  const squash = useMotionValue(1);
+  const stretch = useTransform(squash, (v) => 1 + (1 - v) * 0.6);
 
   // L'ombre rétrécit et s'éclaircit quand le dé est en l'air.
   const shadowScale = useTransform(lift, [-60, 0], [0.45, 1]);
   const shadowOpacity = useTransform(lift, [-60, 0], [0.25, 0.75]);
 
+  // Nuages de poussière soulevés par les rebonds
+  const [puffs, setPuffs] = useState<{ id: number; strength: number }[]>([]);
+
+  // Inclinaison vers la souris au repos (physique de ressort React Spring).
+  const [tilt, tiltApi] = useSpring(() => ({ x: 0, y: 0, config: { mass: 1.2, tension: 170, friction: 22 } }));
+  const zoneRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (reduceMotion || !window.matchMedia("(hover: hover) and (pointer: fine)").matches) return;
+    const onMove = (e: PointerEvent) => {
+      const box = zoneRef.current?.getBoundingClientRect();
+      if (!box) return;
+      // Distance au centre du dé, limitée pour que l'effet reste discret
+      const dx = Math.max(-1, Math.min(1, (e.clientX - (box.left + box.width / 2)) / 400));
+      const dy = Math.max(-1, Math.min(1, (e.clientY - (box.top + box.height / 2)) / 300));
+      tiltApi.start({ x: dx * 16, y: -dy * 12 });
+    };
+    window.addEventListener("pointermove", onMove, { passive: true });
+    return () => window.removeEventListener("pointermove", onMove);
+  }, [reduceMotion, tiltApi]);
+
   const wasRolling = useRef(false);
-  // Toujours la dernière version du callback, sans relancer les animations.
+  // Toujours la dernière version des callbacks, sans relancer les animations.
   const onLandedRef = useRef(onLanded);
+  const onImpactRef = useRef(onImpact);
   useEffect(() => {
     onLandedRef.current = onLanded;
+    onImpactRef.current = onImpact;
   });
 
   // 1) Le dé roule en continu pendant le lancer.
@@ -79,13 +118,17 @@ export function Dice3D({ value, rolling, gold = false, onLanded, className }: Di
     if (!rolling) return;
     wasRolling.current = true;
     if (reduceMotion) return;
+    // Vitesses un peu différentes à chaque lancer : jamais deux fois le même roulé.
+    const spinX = 0.38 + Math.random() * 0.14;
+    const spinY = 0.55 + Math.random() * 0.25;
+    tiltApi.start({ x: 0, y: 0 });
     const controls = [
-      animate(rotateX, rotateX.get() - 360, { duration: 0.46, ease: "linear", repeat: Infinity }),
-      animate(rotateY, rotateY.get() + 360, { duration: 0.7, ease: "linear", repeat: Infinity }),
-      animate(lift, [0, -36, 0], { duration: 0.46, ease: ["easeOut", "easeIn"], repeat: Infinity }),
+      animate(rotateX, rotateX.get() - 360, { duration: spinX, ease: "linear", repeat: Infinity }),
+      animate(rotateY, rotateY.get() + (Math.random() > 0.5 ? 360 : -360), { duration: spinY, ease: "linear", repeat: Infinity }),
+      animate(lift, [0, -40, 0], { duration: spinX, ease: ["easeOut", "easeIn"], repeat: Infinity }),
     ];
     return () => controls.forEach((c) => c.stop());
-  }, [rolling, reduceMotion, rotateX, rotateY, lift]);
+  }, [rolling, reduceMotion, rotateX, rotateY, lift, tiltApi]);
 
   // 2) Le dé se pose sur `value` (après un lancer, ou quand on change de chiffre).
   useEffect(() => {
@@ -103,14 +146,15 @@ export function Dice3D({ value, rolling, gold = false, onLanded, className }: Di
     }
 
     let cancelled = false;
+    const timers: number[] = [];
     const controls = afterRoll
       ? [
           animate(rotateX, target.x, { duration: 1.6, ease: LANDING_EASE }),
           animate(rotateY, target.y, { duration: 1.6, ease: LANDING_EASE }),
           // Rebonds de plus en plus petits, comme un vrai dé sur un tapis
           animate(lift, [lift.get(), -44, 0, -14, 0, -4, 0], {
-            duration: 1.25,
-            times: [0, 0.22, 0.48, 0.64, 0.8, 0.9, 1],
+            duration: BOUNCE_DURATION,
+            times: BOUNCE_TIMES,
             ease: "easeInOut",
           }),
         ]
@@ -124,17 +168,30 @@ export function Dice3D({ value, rolling, gold = false, onLanded, className }: Di
       Promise.all([controls[0].finished, controls[1].finished]).then(() => {
         if (!cancelled) onLandedRef.current?.();
       });
+      // Chocs : écrasement, poussière et vibration de la table à chaque contact.
+      for (const contact of CONTACTS) {
+        timers.push(
+          window.setTimeout(() => {
+            const k = contact.strength;
+            animate(squash, [1, 1 - 0.16 * k, 1 + 0.05 * k, 1], { duration: 0.32, times: [0, 0.25, 0.6, 1], ease: "easeOut" });
+            setPuffs((p) => [...p.slice(-4), { id: Date.now() + k, strength: k }]);
+            onImpactRef.current?.(k);
+          }, contact.at * BOUNCE_DURATION * 1000),
+        );
+      }
     }
     return () => {
       cancelled = true;
+      timers.forEach(clearTimeout);
       controls.forEach((c) => c.stop());
     };
-  }, [rolling, value, reduceMotion, rotateX, rotateY, lift]);
+  }, [rolling, value, reduceMotion, rotateX, rotateY, lift, squash]);
 
   const look = gold ? FACE_STYLE.gold : FACE_STYLE.ivory;
 
   return (
     <div
+      ref={zoneRef}
       className={cn("relative flex items-center justify-center [--die:120px]", className)}
       style={{ width: "calc(var(--die) * 1.8)", height: "calc(var(--die) * 2)" }}
     >
@@ -158,6 +215,22 @@ export function Dice3D({ value, rolling, gold = false, onLanded, className }: Di
         style={{ width: "calc(var(--die) * 1.1)", height: "calc(var(--die) * 0.22)", x: "-50%", scale: shadowScale, opacity: shadowOpacity }}
       />
 
+      {/* Poussière dorée soulevée par les rebonds */}
+      <AnimatePresence>
+        {puffs.map((puff) => (
+          <motion.div
+            key={puff.id}
+            aria-hidden
+            className="pointer-events-none absolute bottom-[4%] left-1/2 rounded-[50%] bg-[radial-gradient(closest-side,rgba(253,231,161,0.55),rgba(245,197,66,0.15)_60%,transparent)]"
+            style={{ width: "calc(var(--die) * 1.4)", height: "calc(var(--die) * 0.3)", x: "-50%" }}
+            initial={{ opacity: 0.9 * puff.strength + 0.1, scaleX: 0.4, scaleY: 0.6 }}
+            animate={{ opacity: 0, scaleX: 1.2 + puff.strength, scaleY: 1 }}
+            transition={{ duration: 0.7, ease: "easeOut" }}
+            onAnimationComplete={() => setPuffs((p) => p.filter((x) => x.id !== puff.id))}
+          />
+        ))}
+      </AnimatePresence>
+
       {/* Flottement doux au repos */}
       <motion.div
         className="relative"
@@ -165,10 +238,15 @@ export function Dice3D({ value, rolling, gold = false, onLanded, className }: Di
         animate={rolling ? { y: 0 } : { y: [0, -7, 0] }}
         transition={rolling ? { duration: 0.2 } : { duration: 3.4, repeat: Infinity, ease: "easeInOut" }}
       >
-        {/* Saut */}
-        <motion.div style={{ y: lift, transformStyle: "preserve-3d" }}>
-          {/* Inclinaison fixe */}
-          <div style={{ transform: TILT, transformStyle: "preserve-3d" }}>
+        {/* Saut + écrasement (depuis le bas du dé) */}
+        <motion.div style={{ y: lift, scaleY: squash, scaleX: stretch, transformOrigin: "50% 100%", transformStyle: "preserve-3d" }}>
+          {/* Inclinaison fixe + inclinaison vers la souris */}
+          <animated.div
+            style={{
+              transform: to([tilt.x, tilt.y], (x, y) => `${TILT} rotateY(${x}deg) rotateX(${y}deg)`),
+              transformStyle: "preserve-3d",
+            }}
+          >
             {/* Le cube qui tourne */}
             <motion.div className="relative" style={{ width: "var(--die)", height: "var(--die)", rotateX, rotateY, transformStyle: "preserve-3d" }}>
               {/* Cœur du dé : remplit les coins arrondis vus de biais */}
@@ -208,7 +286,7 @@ export function Dice3D({ value, rolling, gold = false, onLanded, className }: Di
                 </div>
               ))}
             </motion.div>
-          </div>
+          </animated.div>
         </motion.div>
       </motion.div>
     </div>

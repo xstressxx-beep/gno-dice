@@ -84,12 +84,19 @@ const config: Config = {
           "0%": { backgroundPosition: "100% 0" },
           "100%": { backgroundPosition: "-100% 0" },
         },
+        // Dés décoratifs qui flottent dans le hero
+        float: {
+          "0%, 100%": { translate: "0 0", rotate: "0deg" },
+          "50%": { translate: "0 -14px", rotate: "6deg" },
+        },
       },
       animation: {
         shimmer: "shimmer 6s linear infinite",
         sweep: "sweep 3.4s ease-in-out infinite",
         "pulse-ring": "pulse-ring 1.6s cubic-bezier(0.2, 0.6, 0.4, 1) infinite",
         "skeleton-wave": "skeleton-wave 1.4s ease-in-out infinite",
+        float: "float 7s ease-in-out infinite",
+        "float-slow": "float 10s ease-in-out infinite reverse",
       },
     },
   },

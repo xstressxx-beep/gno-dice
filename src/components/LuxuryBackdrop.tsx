@@ -92,6 +92,8 @@ export function LuxuryBackdrop() {
       ))}
       {/* Vignette : assombrit les bords pour un rendu « salle de casino » */}
       <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,transparent_40%,rgba(0,0,0,0.65)_100%)]" />
+      {/* Grain de film très léger */}
+      <div className="film-grain absolute inset-0" />
     </div>
   );
 }

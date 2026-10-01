@@ -6,6 +6,7 @@ import { motion } from "framer-motion";
 import { Minus, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
+import { haptic, sparkBurstFrom } from "@/lib/fx";
 import { cn } from "@/lib/utils";
 import { AnimatedNumber } from "./AnimatedNumber";
 
@@ -54,7 +55,12 @@ export function BetControl({ value, min, max, onChange, disabled }: BetControlPr
               <motion.button
                 key={chip.value}
                 type="button"
-                onClick={() => onChange(chip.value)}
+                onClick={(e) => {
+                  onChange(chip.value);
+                  // Étincelles aux couleurs du jeton
+                  sparkBurstFrom(e.currentTarget, { count: 10, spread: 45, colors: ["#fff7d6", chip.color === "#161616" ? "#f5c542" : chip.color, "#fde7a1", "#f5c542"] });
+                  haptic(8);
+                }}
                 disabled={disabled}
                 aria-label={`Miser ${chip.value} GNOT`}
                 aria-pressed={active}

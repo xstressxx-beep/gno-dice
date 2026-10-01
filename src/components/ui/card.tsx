@@ -7,6 +7,8 @@ function Card({ className, ...props }: React.ComponentProps<"div">) {
   return (
     <div
       data-slot="card"
+      // Halo doré qui suit la souris (voir globals.css et CustomCursor)
+      data-spotlight=""
       className={cn(
         "relative rounded-lg border border-primary/20 bg-card/85 text-card-foreground shadow-luxe backdrop-blur-md",
         // Fin reflet doré sur le bord supérieur

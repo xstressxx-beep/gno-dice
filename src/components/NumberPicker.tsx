@@ -5,6 +5,7 @@
 
 import { motion } from "framer-motion";
 import { GAME } from "@/lib/config";
+import { haptic, sparkBurstFrom } from "@/lib/fx";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { Die } from "./Die";
 
@@ -32,6 +33,11 @@ export function NumberPicker({ value, onChange, disabled }: NumberPickerProps) {
             key={face}
             value={String(face)}
             aria-label={`Chiffre ${face}`}
+            // Gerbe d'étincelles dorées et petite vibration à chaque choix
+            onClick={(e) => {
+              sparkBurstFrom(e.currentTarget, { count: 12, spread: 55 });
+              haptic(8);
+            }}
             className="relative h-auto min-w-0 rounded-md border border-primary/15 bg-black/45 px-1 py-2.5 hover:border-primary/40 hover:bg-accent/50 data-[state=on]:border-gold-300 data-[state=on]:bg-primary/10 data-[state=on]:shadow-gold sm:py-3.5"
           >
             <motion.span

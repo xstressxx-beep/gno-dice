@@ -111,6 +111,71 @@
   }
 }
 
+/* --- Or « chromé » façon métal poli (le ×5 du grand titre) --- */
+.chrome-gold {
+  background-image: linear-gradient(
+    100deg,
+    #8a6408 0%,
+    #f5c542 18%,
+    #fffaeb 32%,
+    #f9d56e 44%,
+    #b8860b 58%,
+    #fde7a1 74%,
+    #e0aa24 88%,
+    #8a6408 100%
+  );
+  background-size: 220% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  filter: drop-shadow(0 0 28px rgba(245, 197, 66, 0.35));
+  animation: shimmer 7s linear infinite;
+}
+
+/* --- Curseur personnalisé : on masque celui du système (souris uniquement) --- */
+@media (hover: hover) and (pointer: fine) {
+  html.has-custom-cursor,
+  html.has-custom-cursor * {
+    cursor: none !important;
+  }
+  html.has-custom-cursor :is(input, textarea, [contenteditable="true"]) {
+    cursor: text !important;
+  }
+}
+
+/* --- Projecteur : un halo doré suit la souris sur les cartes (positions mises
+       à jour par CustomCursor dans --mx / --my) --- */
+[data-spotlight]::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  background: radial-gradient(420px circle at var(--mx, 50%) var(--my, -30%), rgba(245, 197, 66, 0.07), transparent 45%);
+  opacity: 0;
+  transition: opacity 0.4s ease;
+}
+[data-spotlight]:hover::after {
+  opacity: 1;
+}
+
+/* --- Grain de film très léger sur tout le site (rendu « premium ») --- */
+.film-grain {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  opacity: 0.045;
+  mix-blend-mode: overlay;
+}
+
+/* --- Intro : masquée si déjà vue, ou si on préfère moins d'animations --- */
+html.intro-seen .preloader {
+  display: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  .preloader {
+    display: none;
+  }
+}
+
 /* --- Accessibilité : moins d'animations si l'utilisateur le demande --- */
 @media (prefers-reduced-motion: reduce) {
   *,
