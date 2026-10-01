@@ -45,3 +45,6 @@ graphify-out/
 
 # Copie du contrat préparée pour gnokey (scripts/prepare-deploy.mjs)
 /.deploy
+
+.vercel
+.env*
