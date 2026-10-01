@@ -3,156 +3,192 @@ package gnodice
 import (
 	"strconv"
 	"strings"
-	"time"
 )
 
-// Ces fonctions ne modifient rien : le site les appelle gratuitement (sans
-// transaction ni signature) pour lire l'état du jeu. Elles renvoient du JSON.
+// Lectures : ces fonctions ne modifient rien. Le site et le croupier les
+// appellent gratuitement (sans transaction) pour lire l'état du jeu en JSON.
+// Les seules chaînes écrites sont des adresses, des empreintes/graines
+// hexadécimales (vérifiées) et des statuts fixes : rien à échapper.
 
-// GetInfoJSON renvoie l'état global du jeu.
-//
-// Exemple :
-//
-//	{"owner":"g1...","realm":"g1...","paused":false,"bankroll":150000000,
-//	 "maxCoverableBet":10000000,"minBet":1000000,"maxBet":10000000,
-//	 "multiplier":5,"cooldown":600,"historySize":10,"totalGames":42,
-//	 "totalWins":7,"totalWagered":...,"totalPaid":...,"now":1790000000,
-//	 "recent":[...]}
+// GetInfoJSON renvoie l'état global du jeu et les dernières parties terminées.
 func GetInfoJSON() string {
+	t := now()
 	var b strings.Builder
 	b.WriteString("{")
-	writeStringField(&b, "owner", owner.String())
-	b.WriteString(",")
-	writeStringField(&b, "realm", realmAddr.String())
-	b.WriteString(",")
-	writeBoolField(&b, "paused", paused)
-	b.WriteString(",")
-	writeIntField(&b, "bankroll", Bankroll())
-	b.WriteString(",")
-	writeIntField(&b, "maxCoverableBet", MaxCoverableBet())
-	b.WriteString(",")
-	writeIntField(&b, "minBet", MinBet)
-	b.WriteString(",")
-	writeIntField(&b, "maxBet", MaxBet)
-	b.WriteString(",")
-	writeIntField(&b, "multiplier", PayoutMultiplier)
-	b.WriteString(",")
-	writeIntField(&b, "cooldown", CooldownSeconds)
-	b.WriteString(",")
-	writeIntField(&b, "historySize", HistorySize)
-	b.WriteString(",")
-	writeIntField(&b, "totalGames", int64(totalGames))
-	b.WriteString(",")
-	writeIntField(&b, "totalWins", int64(totalWins))
-	b.WriteString(",")
-	writeIntField(&b, "totalWagered", totalWagered)
-	b.WriteString(",")
-	writeIntField(&b, "totalPaid", totalPaid)
-	b.WriteString(",")
-	writeIntField(&b, "totalFunded", totalFunded)
-	b.WriteString(",")
-	writeIntField(&b, "now", time.Now().Unix())
-	b.WriteString(`,"recent":`)
-	writeGamesNewestFirst(&b, recent)
+	str(&b, "owner", owner.String())
+	str(&b, "pendingOwner", pendingOwner.String())
+	str(&b, "croupier", croupier.String())
+	str(&b, "realm", realmAddr.String())
+	boolean(&b, "paused", paused)
+	num(&b, "bankroll", Bankroll())
+	num(&b, "reserved", reserved)
+	num(&b, "available", available())
+	num(&b, "maxCoverableBet", MaxCoverableBet())
+	num(&b, "minBet", MinBet)
+	num(&b, "maxBet", MaxBet)
+	num(&b, "multiplier", PayoutMultiplier)
+	num(&b, "cooldown", CooldownSeconds)
+	num(&b, "historySize", HistorySize)
+	num(&b, "resolveTimeout", ResolveTimeout)
+	num(&b, "revealWindow", RevealWindow)
+	num(&b, "totalGames", totalGames)
+	num(&b, "totalWins", int64(totalWins))
+	num(&b, "totalLosses", int64(totalLosses))
+	num(&b, "totalRefunded", int64(totalRefunded))
+	num(&b, "totalExpired", int64(totalExpired))
+	num(&b, "totalWagered", totalWagered)
+	num(&b, "totalPaid", totalPaid)
+	num(&b, "totalFunded", totalFunded)
+	num(&b, "totalWithdrawn", totalWithdrawn)
+	num(&b, "openGames", int64(openGames.Size()))
+	num(&b, "dailyPayoutLimit", dailyPayoutLimit)
+	todayPaid := int64(0)
+	if t/86400 == payoutDay {
+		todayPaid = payoutToday
+	}
+	num(&b, "payoutToday", todayPaid)
+	num(&b, "lowBankroll", lowBankroll)
+	num(&b, "now", t)
+	b.WriteString(`"recent":`)
+	writeGameIDs(&b, recent)
 	b.WriteString("}")
 	return b.String()
 }
 
-// GetPlayerJSON renvoie les statistiques d'un joueur, son temps d'attente
-// avant de pouvoir rejouer et ses 10 dernières parties (la plus récente en
-// premier).
-//
-// Exemple :
-//
-//	{"address":"g1...","played":3,"wins":1,"wagered":6000000,"paid":10000000,
-//	 "lastPlay":1790000000,"nextPlayAt":1790000600,"cooldownRemaining":120,
-//	 "now":1790000480,"history":[{"id":3,...}]}
+// GetPlayerJSON renvoie les statistiques d'un joueur, son temps d'attente,
+// ses parties en cours et ses 10 dernières parties terminées.
 func GetPlayerJSON(addr string) string {
 	player := address(addr)
 	if !player.IsValid() {
 		return `{"error":"adresse invalide"}`
 	}
-
 	p := getPlayer(player)
-	now := time.Now().Unix()
-
-	var b strings.Builder
-	b.WriteString("{")
-	writeStringField(&b, "address", player.String())
-	b.WriteString(",")
 	if p == nil {
 		p = &playerData{}
 	}
-	writeIntField(&b, "played", int64(p.Played))
-	b.WriteString(",")
-	writeIntField(&b, "wins", int64(p.Wins))
-	b.WriteString(",")
-	writeIntField(&b, "wagered", p.Wagered)
-	b.WriteString(",")
-	writeIntField(&b, "paid", p.Paid)
-	b.WriteString(",")
-	writeIntField(&b, "lastPlay", p.LastPlay)
-	b.WriteString(",")
+	t := now()
 	nextPlayAt := int64(0)
-	if p.Played > 0 {
+	if p.LastPlay > 0 {
 		nextPlayAt = p.LastPlay + CooldownSeconds
 	}
-	writeIntField(&b, "nextPlayAt", nextPlayAt)
-	b.WriteString(",")
-	writeIntField(&b, "cooldownRemaining", cooldownRemaining(p, now))
-	b.WriteString(",")
-	writeIntField(&b, "now", now)
+
+	var b strings.Builder
+	b.WriteString("{")
+	str(&b, "address", player.String())
+	num(&b, "played", int64(p.Played))
+	num(&b, "wins", int64(p.Wins))
+	num(&b, "wagered", p.Wagered)
+	num(&b, "paid", p.Paid)
+	num(&b, "lastPlay", p.LastPlay)
+	num(&b, "nextPlayAt", nextPlayAt)
+	num(&b, "cooldownRemaining", cooldownRemaining(p, t))
+	boolean(&b, "blocked", isBlocked(player))
+	num(&b, "now", t)
+	b.WriteString(`"open":`)
+	writePlayerOpenGames(&b, player, p.Open)
 	b.WriteString(`,"history":`)
-	writeGamesNewestFirst(&b, p.History)
+	writeGameIDs(&b, p.History)
 	b.WriteString("}")
 	return b.String()
 }
 
-// --- petits outils pour écrire du JSON ---
-// Les seules chaînes écrites sont des adresses (lettres et chiffres), il n'y
-// a donc aucun caractère spécial à échapper.
+// GetGameJSON renvoie une partie, ou {"error":...} si elle n'existe pas.
+func GetGameJSON(id int64) string {
+	g := getGame(id)
+	if g == nil {
+		return `{"error":"partie introuvable"}`
+	}
+	var b strings.Builder
+	writeGame(&b, g)
+	return b.String()
+}
 
-func writeGamesNewestFirst(b *strings.Builder, games []Game) {
+// GetOpenGamesJSON renvoie les parties en cours (en attente de tirage ou de
+// révélation), de la plus ancienne à la plus récente, à partir du numéro
+// `after` exclu (pagination ; 0 pour commencer). Utilisé par le croupier.
+func GetOpenGamesJSON(after int64) string {
+	var b strings.Builder
 	b.WriteString("[")
-	for i := len(games) - 1; i >= 0; i-- {
-		if i != len(games)-1 {
+	count := 0
+	openGames.Iterate(gameKey(after+1), "", func(key string, _ any) bool {
+		v := games.Get(key)
+		if count > 0 {
 			b.WriteString(",")
 		}
-		writeGame(b, games[i])
+		writeGame(&b, v.(*Game))
+		count++
+		return count >= maxPageSize
+	})
+	b.WriteString("]")
+	return b.String()
+}
+
+// --- écriture JSON ---
+
+func writePlayerOpenGames(b *strings.Builder, player address, open int) {
+	b.WriteString("[")
+	if open > 0 {
+		count := 0
+		// Les parties en cours sont peu nombreuses (cooldown de 10 min) :
+		// on parcourt la liste des parties ouvertes en partant de la plus récente.
+		openGames.ReverseIterate("", "", func(key string, _ any) bool {
+			v := games.Get(key)
+			g := v.(*Game)
+			if g.Player == player {
+				if count > 0 {
+					b.WriteString(",")
+				}
+				writeGame(b, g)
+				count++
+			}
+			return count >= open || count >= maxPageSize
+		})
 	}
 	b.WriteString("]")
 }
 
-func writeGame(b *strings.Builder, g Game) {
+// writeGameIDs écrit les parties de la plus récente à la plus ancienne.
+func writeGameIDs(b *strings.Builder, ids []int64) {
+	b.WriteString("[")
+	for i := len(ids) - 1; i >= 0; i-- {
+		if i != len(ids)-1 {
+			b.WriteString(",")
+		}
+		writeGame(b, mustGetGame(ids[i]))
+	}
+	b.WriteString("]")
+}
+
+func writeGame(b *strings.Builder, g *Game) {
 	b.WriteString("{")
-	writeIntField(b, "id", int64(g.ID))
-	b.WriteString(",")
-	writeStringField(b, "player", g.Player.String())
-	b.WriteString(",")
-	writeIntField(b, "guess", int64(g.Guess))
-	b.WriteString(",")
-	writeIntField(b, "roll", int64(g.Roll))
-	b.WriteString(",")
-	writeIntField(b, "bet", g.Bet)
-	b.WriteString(",")
-	writeIntField(b, "payout", g.Payout)
-	b.WriteString(",")
-	writeBoolField(b, "won", g.Won)
-	b.WriteString(",")
-	writeIntField(b, "time", g.Time)
-	b.WriteString(",")
-	writeIntField(b, "height", g.Height)
+	num(b, "id", g.ID)
+	str(b, "player", g.Player.String())
+	str(b, "status", g.Status.String())
+	str(b, "commitment", g.Commitment)
+	str(b, "seed", g.Seed)
+	num(b, "guess", int64(g.Guess))
+	num(b, "roll", int64(g.Roll))
+	num(b, "bet", g.Bet)
+	num(b, "payout", g.Payout)
+	boolean(b, "won", g.Won())
+	num(b, "time", g.PlacedAt)
+	num(b, "height", g.PlacedHeight)
+	num(b, "rolledAt", g.RolledAt)
+	num(b, "settledAt", g.SettledAt)
+	b.WriteString(`"resolveDeadline":` + itoa64(g.PlacedAt+ResolveTimeout))
 	b.WriteString("}")
 }
 
-func writeStringField(b *strings.Builder, key, value string) {
-	b.WriteString(`"` + key + `":"` + value + `"`)
+// Chaque champ est suivi d'une virgule ; le dernier champ d'un objet est
+// écrit à la main, sans virgule.
+func str(b *strings.Builder, key, value string) {
+	b.WriteString(`"` + key + `":"` + value + `",`)
 }
 
-func writeIntField(b *strings.Builder, key string, value int64) {
-	b.WriteString(`"` + key + `":` + strconv.FormatInt(value, 10))
+func num(b *strings.Builder, key string, value int64) {
+	b.WriteString(`"` + key + `":` + strconv.FormatInt(value, 10) + `,`)
 }
 
-func writeBoolField(b *strings.Builder, key string, value bool) {
-	b.WriteString(`"` + key + `":` + strconv.FormatBool(value))
+func boolean(b *strings.Builder, key string, value bool) {
+	b.WriteString(`"` + key + `":` + strconv.FormatBool(value) + `,`)
 }

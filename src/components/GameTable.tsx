@@ -13,8 +13,11 @@ import { ADENA_DOWNLOAD_URL, sendTransaction } from "@/lib/adena";
 import { config, FIRST_GAME_DEPOSIT_UGNOT, GAME, GAS, NEXT_GAME_DEPOSIT_UGNOT } from "@/lib/config";
 import { haptic, RUBY, sparkBurstFrom } from "@/lib/fx";
 import { formatCountdown, formatGnot, UGNOT_PER_GNOT } from "@/lib/format";
-import { estimateFee, type GameInfo, type PlayerInfo } from "@/lib/gno";
-import { parsePlayResult, playMessage } from "@/lib/gnodice";
+import { requestResolve, requestReveal } from "@/lib/croupierClient";
+import { commitment, randomHex32, rollFor } from "@/lib/fairness";
+import { estimateFee, fetchGame, type Game, type GameInfo, type PlayerInfo } from "@/lib/gno";
+import { parsePlayId, playMessage } from "@/lib/gnodice";
+import { forgetSecret, saveSecret, setSecretId } from "@/lib/secrets";
 import type { ContractStatus } from "@/hooks/useGnodice";
 import { useIntroDone } from "@/hooks/useIntroDone";
 import { useNow } from "@/hooks/useNow";
@@ -26,6 +29,7 @@ import { BetControl } from "./BetControl";
 import { DieStage } from "./DieStage";
 import type { SceneFx } from "./DieScene";
 import { NumberPicker } from "./NumberPicker";
+import { OpenGames } from "./OpenGames";
 import { PlayButton, type PlayAction } from "./PlayButton";
 import { ScreenFlash, type Flash } from "./ScreenFlash";
 import { useWallet } from "./WalletProvider";
@@ -61,6 +65,9 @@ export function GameTable({ info, player, status, clockOffset, refresh }: Props)
   const [outcome, setOutcome] = useState<Outcome | null>(null);
   const [revealed, setRevealed] = useState(false);
   const [txError, setTxError] = useState<string | null>(null);
+  // Fin de la partie en cours : versement relayé par le croupier, ou à signer soi-même
+  const [settlement, setSettlement] = useState<"idle" | "settling" | "done" | "manual">("idle");
+  const busy = useRef(false);
   const [fee, setFee] = useState(DEFAULT_FEE_UGNOT);
   const [flash, setFlash] = useState<Flash | null>(null);
   const [sceneFx, setSceneFx] = useState<SceneFx>(null);
@@ -122,40 +129,57 @@ export function GameTable({ info, player, status, clockOffset, refresh }: Props)
     [shake],
   );
 
+  /**
+   * Une partie en 3 étapes (voir contract/gnodice/gnodice.gno) :
+   * 1. on mise sur un chiffre CACHÉ (son empreinte), après avoir gardé le
+   *    chiffre et le secret dans le navigateur ;
+   * 2. le croupier tire le dé sans connaître le chiffre ; le site refait le
+   *    calcul avec la graine publiée pour vérifier le tirage ;
+   * 3. le chiffre est dévoilé (relayé par le croupier, sinon signé par le
+   *    joueur) et le contrat paie en cas de victoire.
+   */
   async function play() {
-    if (!wallet.address || guess === null) return;
+    // Verrou : un double clic ne peut pas envoyer deux mises.
+    if (busy.current || !wallet.address || guess === null) return;
+    busy.current = true;
     const chosen = guess;
-    const lastGameId = player?.history[0]?.id ?? 0;
+    const address = wallet.address;
     setTxError(null);
+    setSettlement("idle");
     setOutcome(null);
     setRevealed(false);
     outcomeRef.current = null;
     setPending(true);
     try {
-      const currentFee = await estimateFee(GAS.play);
-      const tx = await sendTransaction([playMessage(wallet.address, chosen, betUgnot)], GAS.play, currentFee);
+      const salt = randomHex32();
+      const commit = await commitment(address, chosen, salt);
+      if (!saveSecret({ player: address, commitment: commit, guess: chosen, salt })) {
+        throw new Error("Ton navigateur bloque le stockage local : impossible de garder ton chiffre secret. Autorise-le pour jouer.");
+      }
 
-      // 1) Le résultat renvoyé directement par la transaction.
-      let result = parsePlayResult(tx.returned);
-      // 2) Sinon, on le lit dans l'historique du contrat (source de vérité).
-      for (let attempt = 0; !result && attempt < 6; attempt++) {
-        const fresh = await refresh();
-        const last = fresh?.history[0];
-        if (last && last.id !== lastGameId) result = { roll: last.roll, won: last.won, payout: last.payout };
-        else await wait(1500);
+      const currentFee = await estimateFee(GAS.play);
+      const tx = await sendTransaction([playMessage(address, commit, betUgnot)], GAS.play, currentFee);
+      const id = parsePlayId(tx.returned) ?? (await findOpenGameId(address, commit));
+      if (!id) throw new Error("Mise envoyée, mais le numéro de partie est introuvable. Elle apparaîtra dans « Partie en cours ».");
+      setSecretId(commit, id);
+
+      const rolled = await waitForRoll(id);
+      // Vérification indépendante : le dé doit correspondre à la graine publiée.
+      if ((await rollFor(rolled.seed, rolled.commitment, rolled.id)) !== rolled.roll) {
+        throw new Error("Le tirage publié ne correspond pas à sa graine. Partie signalée, ne rejoue pas avant vérification.");
       }
-      if (result) {
-        const next = { id: Date.now(), guess: chosen, bet, ...result };
-        outcomeRef.current = next;
-        setOutcome(next);
-        window.setTimeout(reveal, REVEAL_FALLBACK_MS);
-      } else {
-        setTxError("Lancer envoyé, mais le résultat n'est pas encore visible. Il apparaîtra dans ton historique.");
-      }
+
+      const won = rolled.roll === chosen;
+      const next: Outcome = { id, guess: chosen, bet, roll: rolled.roll, won, payout: won ? betUgnot * multiplier : 0 };
+      outcomeRef.current = next;
+      setOutcome(next);
+      window.setTimeout(reveal, REVEAL_FALLBACK_MS);
+      void settle(id, chosen, salt, commit);
     } catch (e) {
       setTxError(e instanceof Error ? e.message : String(e));
     } finally {
       setPending(false);
+      busy.current = false;
       // On relit l'historique et le solde une fois le dé posé, pour ne pas dévoiler le résultat avant l'animation.
       const sync = () => {
         refresh();
@@ -164,6 +188,54 @@ export function GameTable({ info, player, status, clockOffset, refresh }: Props)
       if (outcomeRef.current) window.setTimeout(sync, REVEAL_FALLBACK_MS);
       else sync();
     }
+  }
+
+  /** Attend le tirage : on le demande au croupier, sinon on surveille le contrat. */
+  async function waitForRoll(id: number): Promise<Game> {
+    try {
+      const game = await requestResolve(id);
+      if (game.status !== "pending") return game;
+    } catch {
+      // croupier injoignable : on surveille directement le contrat
+    }
+    for (let i = 0; i < 20; i++) {
+      await wait(3_000);
+      const game = await fetchGame(id).catch(() => null);
+      if (game && game.status !== "pending") return game;
+    }
+    throw new Error(
+      "Le croupier ne répond pas pour le moment. Ta mise est en sécurité : si le dé n'est pas tiré dans les 30 minutes, tu pourras la récupérer (« Partie en cours »).",
+    );
+  }
+
+  /** Termine la partie : révélation relayée par le croupier, ou signée par le joueur en secours. */
+  async function settle(id: number, chosen: number, salt: string, commit: string) {
+    setSettlement("settling");
+    try {
+      const game = await requestReveal(id, chosen, salt);
+      if (game.status === "won" || game.status === "lost") {
+        forgetSecret(commit);
+        setSettlement("done");
+        refresh();
+        wallet.refreshBalance();
+        return;
+      }
+    } catch {
+      // le croupier ne peut pas relayer : le joueur signera lui-même (bouton « Partie en cours »)
+    }
+    setSettlement("manual");
+    refresh();
+  }
+
+  /** Retrouve le numéro de la partie à partir de son empreinte (si la réponse de la transaction est perdue). */
+  async function findOpenGameId(address: string, commit: string): Promise<number | null> {
+    for (let i = 0; i < 5; i++) {
+      const fresh = await refresh();
+      const match = fresh?.open.find((g) => g.commitment === commit && g.player === address);
+      if (match) return match.id;
+      await wait(1_500);
+    }
+    return null;
   }
 
   /** Clic sur « Lancer » : étincelles + vibration, puis le lancer. */
@@ -236,7 +308,10 @@ export function GameTable({ info, player, status, clockOffset, refresh }: Props)
         <p className="display-soft text-[clamp(2.4rem,5vw,3.5rem)] leading-none text-chalk">
           +<AnimatedNumber value={outcome.payout} from={0} speed="slow" format={(n) => formatGnot(n)} /> GNOT
         </p>
-        <p className="mt-2 text-[0.95rem] text-haze">Le dé est tombé sur ton {outcome.roll}. Gagné.</p>
+        <p className="mt-2 text-[0.95rem] text-haze">
+          Le dé est tombé sur ton {outcome.roll}.{" "}
+          {settlement === "done" ? "Gain versé sur ton wallet." : settlement === "manual" ? "Encaisse ton gain ci-dessous." : "Versement en cours…"}
+        </p>
       </motion.div>
     );
   } else if (outcome) {
@@ -341,7 +416,7 @@ export function GameTable({ info, player, status, clockOffset, refresh }: Props)
               </TooltipTrigger>
               <TooltipContent>
                 Frais réseau ≈ {formatGnot(fee, 3)} GNOT
-                {firstGame && " (+ ~0,44 GNOT de dépôt de stockage à ta 1re partie)"}
+                {firstGame ? " (+ ~0,85 GNOT de dépôt de stockage à ta 1re partie)" : " (+ un petit dépôt de stockage)"}
               </TooltipContent>
             </Tooltip>
           </p>
@@ -359,6 +434,10 @@ export function GameTable({ info, player, status, clockOffset, refresh }: Props)
               Un lancer toutes les 10 minutes. Reviens dans <strong className="tabular-nums text-chalk">{formatCountdown(cooldownLeft)}</strong>
             </p>
           </div>
+        )}
+
+        {player && player.open.length > 0 && (
+          <OpenGames games={player.open} onChange={() => (refresh(), wallet.refreshBalance())} highlightManual={settlement === "manual"} />
         )}
 
         {txError && <Alert variant="destructive">{txError}</Alert>}

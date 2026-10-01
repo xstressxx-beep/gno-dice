@@ -99,14 +99,14 @@ function GameList({ games, showPlayer = false }: { games: Game[]; showPlayer?: b
           >
             {/* Chiffre joué et résultat */}
             <span className="flex items-center gap-1.5">
-              <Die value={game.guess} size={26} variant="ghost" label={`Chiffre joué : ${game.guess}`} />
-              <Die value={game.roll} size={26} variant={game.won ? "ruby" : "chalk"} label={`Résultat du dé : ${game.roll}`} />
+              <FaceOrUnknown value={game.guess} variant="ghost" label="Chiffre joué" />
+              <FaceOrUnknown value={game.roll} variant={game.won ? "ruby" : "chalk"} label="Résultat du dé" />
             </span>
 
             {/* Mise et date */}
             <span className="flex min-w-0 flex-col leading-tight">
               <span className="truncate text-[0.95rem] text-chalk">
-                {formatGnot(game.bet)} GNOT sur le {game.guess}
+                {formatGnot(game.bet)} GNOT{game.guess > 0 && ` sur le ${game.guess}`}
               </span>
               <span className="truncate text-sm text-haze">
                 {showPlayer && <span className="text-chalk/70">{shortAddress(game.player)}, </span>}
@@ -116,13 +116,25 @@ function GameList({ games, showPlayer = false }: { games: Game[]; showPlayer?: b
 
             {/* Résultat */}
             <span className={cn("text-right tabular-nums", game.won ? "display-soft text-xl text-ruby-light" : "text-sm text-haze")}>
-              {game.won ? `+${formatGnot(game.payout)}` : `tombé sur le ${game.roll}`}
+              {game.won ? `+${formatGnot(game.payout)}` : game.status === "refunded" ? "mise rendue" : game.status === "expired" ? "expirée" : `tombé sur le ${game.roll}`}
             </span>
           </motion.li>
         ))}
       </AnimatePresence>
     </ol>
   );
+}
+
+/** Une face de dé, ou « ? » si la valeur est inconnue (jamais dévoilée ou jamais tirée). */
+function FaceOrUnknown({ value, variant, label }: { value: number; variant: "ghost" | "ruby" | "chalk"; label: string }) {
+  if (value < 1) {
+    return (
+      <span role="img" aria-label={`${label} : inconnu`} className="grid size-[26px] place-items-center rounded-md border border-dashed border-border text-xs text-haze">
+        ?
+      </span>
+    );
+  }
+  return <Die value={value} size={26} variant={variant} label={`${label} : ${value}`} />;
 }
 
 function Summary({ label, children }: { label: string; children: ReactNode }) {

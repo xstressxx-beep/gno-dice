@@ -1,15 +1,26 @@
 import { describe, expect, it } from "vitest";
-import { deployMessage, fundMessage, parsePlayResult, playMessage, realmPathFor } from "./gnodice";
+import { deployMessage, fundMessage, parsePlayId, parsePlayResult, playMessage, realmPathFor, refundMessage, revealMessage } from "./gnodice";
 
 const PLAYER = "g1jgps44vjlq34un3lychj3v3fg6aqapxm0lrhqa";
 const REALM = "gno.land/r/g1vu4h2u5s99g7pz8exlv3dsd2ks3ness2ssq7hl/gnodice";
+const COMMIT = "b0ee524a518406c9ca0b10d37962bdd2eb817023959d4896aab9e599afb9e7f2";
+const SALT = "2f683125c961cde12579ea12f7ae964c2cfe0d21bb3ca0ab90aeb92528d00575";
 
 describe("messages de transaction", () => {
-  it("prépare un lancer de dé", () => {
-    expect(playMessage(PLAYER, 6, 10_000_000, REALM)).toEqual({
+  it("prépare une mise sur un chiffre caché (seule l'empreinte est envoyée)", () => {
+    expect(playMessage(PLAYER, COMMIT, 10_000_000, REALM)).toEqual({
       type: "/vm.m_call",
-      value: { caller: PLAYER, send: "10000000ugnot", max_deposit: "", pkg_path: REALM, func: "Play", args: ["6"] },
+      value: { caller: PLAYER, send: "10000000ugnot", max_deposit: "", pkg_path: REALM, func: "Play", args: [COMMIT] },
     });
+  });
+
+  it("prépare la révélation et le remboursement", () => {
+    expect(revealMessage(PLAYER, 42, 3, SALT, REALM)).toEqual({
+      type: "/vm.m_call",
+      value: { caller: PLAYER, send: "", max_deposit: "", pkg_path: REALM, func: "Reveal", args: ["42", "3", SALT] },
+    });
+    const refund = refundMessage(PLAYER, 42, REALM);
+    if (refund.type === "/vm.m_call") expect(refund.value.args).toEqual(["42"]);
   });
 
   it("prépare l'alimentation de la banque", () => {
@@ -40,8 +51,13 @@ describe("messages de transaction", () => {
   });
 });
 
-describe("résultat d'un lancer", () => {
-  it("lit la valeur renvoyée par Play (format réel de la blockchain)", () => {
+describe("réponses du contrat", () => {
+  it("lit le numéro de partie renvoyé par Play", () => {
+    expect(parsePlayId('("id=42" string)')).toBe(42);
+    expect(parsePlayId("")).toBeNull();
+  });
+
+  it("lit le résultat renvoyé par Reveal (format réel de la blockchain)", () => {
     expect(parsePlayResult('("roll=4;won=false;payout=0" string)')).toEqual({ roll: 4, won: false, payout: 0 });
     expect(parsePlayResult('("roll=6;won=true;payout=50000000" string)')).toEqual({ roll: 6, won: true, payout: 50_000_000 });
   });

@@ -9,34 +9,57 @@ import { parseUgnot } from "./format";
 
 // --- Types renvoyés par le contrat (voir contract/gnodice/api.gno) ---
 
+/** Étapes d'une partie (voir contract/gnodice/gnodice.gno). */
+export type GameStatus = "pending" | "rolled" | "won" | "lost" | "refunded" | "expired";
+
 export type Game = {
   id: number;
   player: string;
-  guess: number;
-  roll: number;
+  status: GameStatus;
+  commitment: string; // empreinte du chiffre caché
+  seed: string; // graine du croupier (vide avant le tirage)
+  guess: number; // 0 tant que le chiffre est caché
+  roll: number; // 0 avant le tirage
   bet: number; // ugnot
   payout: number; // ugnot
   won: boolean;
-  time: number; // secondes Unix (heure du bloc)
+  time: number; // secondes Unix (heure du bloc de la mise)
   height: number;
+  rolledAt: number;
+  settledAt: number;
+  resolveDeadline: number; // après cette heure, la mise peut être remboursée
 };
 
 export type GameInfo = {
   owner: string;
+  pendingOwner: string;
+  croupier: string;
   realm: string;
   paused: boolean;
   bankroll: number;
+  reserved: number;
+  available: number;
   maxCoverableBet: number;
   minBet: number;
   maxBet: number;
   multiplier: number;
   cooldown: number;
   historySize: number;
+  resolveTimeout: number;
+  revealWindow: number;
   totalGames: number;
   totalWins: number;
+  totalLosses: number;
+  totalRefunded: number;
+  totalExpired: number;
   totalWagered: number;
   totalPaid: number;
   totalFunded: number;
+  totalWithdrawn: number;
+  openGames: number;
+  dailyPayoutLimit: number;
+  payoutToday: number;
+  lowBankroll: number;
   now: number;
   recent: Game[];
 };
@@ -50,7 +73,10 @@ export type PlayerInfo = {
   lastPlay: number;
   nextPlayAt: number;
   cooldownRemaining: number;
+  blocked: boolean;
   now: number;
+  /** Parties en cours (en attente de tirage ou de révélation). */
+  open: Game[];
   history: Game[];
 };
 
@@ -59,9 +85,12 @@ export type PackageStatus = "absent" | "inert" | "live";
 export class GnoQueryError extends Error {
   /** Type d'erreur renvoyé par le nœud, par ex. "/vm.InvalidPkgPathError". */
   readonly type?: string;
-  constructor(message: string, type?: string) {
+  /** true pour une panne passagère (réseau, serveur) qui mérite un nouvel essai. */
+  readonly retryable: boolean;
+  constructor(message: string, type?: string, retryable = false) {
     super(message);
     this.type = type;
+    this.retryable = retryable;
   }
 }
 
@@ -110,11 +139,35 @@ type AbciResponse = {
   error?: { message?: string; data?: string };
 };
 
+// Fiabilité : chaque requête a un délai maximal, et les pannes réseau
+// (pas les erreurs du contrat) sont retentées avec une attente croissante.
+const QUERY_TIMEOUT_MS = 8_000;
+const RETRY_DELAYS_MS = [400, 1_200];
+
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+/** Une erreur réseau ou serveur (5xx) mérite un nouvel essai ; une erreur du contrat, non. */
+function isRetryable(e: unknown): boolean {
+  return e instanceof GnoQueryError && e.retryable === true;
+}
+
 /** Envoie une requête "abci_query" au nœud RPC et renvoie la réponse décodée. */
 export async function abciQuery(path: string, data: string, rpcUrl = config.rpcUrl): Promise<string> {
+  for (let attempt = 0; ; attempt++) {
+    try {
+      return await abciQueryOnce(path, data, rpcUrl);
+    } catch (e) {
+      if (!isRetryable(e) || attempt >= RETRY_DELAYS_MS.length) throw e;
+      await sleep(RETRY_DELAYS_MS[attempt]);
+    }
+  }
+}
+
+async function abciQueryOnce(path: string, data: string, rpcUrl: string): Promise<string> {
   let res: Response;
   try {
     res = await fetch(rpcUrl, {
+      signal: AbortSignal.timeout(QUERY_TIMEOUT_MS),
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -126,9 +179,9 @@ export async function abciQuery(path: string, data: string, rpcUrl = config.rpcU
       cache: "no-store",
     });
   } catch {
-    throw new GnoQueryError("Impossible de joindre le réseau Gno. Vérifie ta connexion.");
+    throw new GnoQueryError("Impossible de joindre le réseau Gno. Vérifie ta connexion.", undefined, true);
   }
-  if (!res.ok) throw new GnoQueryError(`Le nœud Gno a répondu avec l'erreur ${res.status}.`);
+  if (!res.ok) throw new GnoQueryError(`Le nœud Gno a répondu avec l'erreur ${res.status}.`, undefined, res.status >= 500);
 
   const json = (await res.json()) as AbciResponse;
   if (json.error) throw new GnoQueryError(json.error.data || json.error.message || "Erreur RPC.");
@@ -180,6 +233,21 @@ export async function fetchPlayer(address: string, realmPath = config.realmPath)
   const json = JSON.parse(await evalString(`${realmPath}.GetPlayerJSON("${address}")`));
   if (json.error) throw new GnoQueryError(json.error);
   return json as PlayerInfo;
+}
+
+/** Une partie, ou null si elle n'existe pas. */
+export async function fetchGame(id: number, realmPath = config.realmPath): Promise<Game | null> {
+  requireRealm(realmPath);
+  if (!Number.isSafeInteger(id) || id < 1) throw new GnoQueryError("Numéro de partie invalide.");
+  const json = JSON.parse(await evalString(`${realmPath}.GetGameJSON(${id})`));
+  return json.error ? null : (json as Game);
+}
+
+/** Parties en cours (50 au plus), après le numéro `after`. */
+export async function fetchOpenGames(after = 0, realmPath = config.realmPath): Promise<Game[]> {
+  requireRealm(realmPath);
+  if (!Number.isSafeInteger(after) || after < 0) throw new GnoQueryError("Numéro de partie invalide.");
+  return JSON.parse(await evalString(`${realmPath}.GetOpenGamesJSON(${after})`)) as Game[];
 }
 
 // --- Autres lectures utiles ---

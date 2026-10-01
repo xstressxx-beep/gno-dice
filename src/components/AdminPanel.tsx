@@ -14,6 +14,7 @@ import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { MonitoringSection } from "./MonitoringSection";
 import { useWallet } from "./WalletProvider";
 
 type Notice = { kind: "error" | "success" | "info"; text: string } | null;
@@ -52,7 +53,10 @@ export function AdminPanel({ files }: { files: ContractFile[] }) {
         <>
           <DeploySection address={wallet.address!} files={files} onLive={setLivePath} />
           {managedPaths.map((path) => (
-            <ManageSection key={path} address={wallet.address!} path={path} />
+            <div key={path} className="flex flex-col gap-6">
+              <ManageSection address={wallet.address!} path={path} />
+              <MonitoringSection path={path} />
+            </div>
           ))}
         </>
       )}
@@ -362,8 +366,9 @@ function ManageSection({ address, path }: { address: string; path: string }) {
           </KeyValues>
 
           <p className="text-muted-foreground">
-            Pour accepter la mise maximale de 10 GNOT, la banque doit contenir au moins 40 GNOT (le joueur apporte sa mise, la banque
-            complète pour payer 5×). Prévois plus pour supporter plusieurs gains d’affilée.
+            Chaque mise réserve 5 fois son montant jusqu’à la fin de la partie. Pour accepter la mise maximale de 10 GNOT, il faut au
+            moins 40 GNOT disponibles. Prévois plus pour plusieurs joueurs en même temps. Seul le solde disponible (hors réserve) peut
+            être retiré.
           </p>
 
           <div className="flex flex-col gap-[18px]">

@@ -21,7 +21,9 @@ const RULES = [
 ];
 
 export function RollTicker({ recent }: { recent: Game[] }) {
-  const items = recent.length > 0 ? recent.slice(0, 12) : null;
+  // Seulement les parties jouées jusqu'au bout (pas les mises remboursées ou expirées)
+  const played = recent.filter((g) => g.status === "won" || g.status === "lost");
+  const items = played.length > 0 ? played.slice(0, 12) : null;
 
   // Vitesse de base + vitesse du défilement de la page
   const baseX = useMotionValue(0);

@@ -32,21 +32,24 @@ export const GAME = {
   faces: [1, 2, 3, 4, 5, 6] as const,
 };
 
-// Gas demandé pour chaque type de transaction. Mesuré sur une chaîne locale :
-// Play ≈ 6,4 M, Fund ≈ 3,2 M, déploiement ≈ 33 M. Les frais payés sont
-// calculés à partir de ces limites (gas demandé × prix du gas du réseau),
-// on garde donc une marge raisonnable sans exagérer.
+// Gas demandé pour chaque type de transaction, MESURÉ sur une vraie chaîne
+// locale (gnodev, test de bout en bout du 01/10/2026) puis +50 % de marge :
+// Play ≈ 16,5 M, Resolve ≈ 7,3 M, Reveal gagnant ≈ 14,8 M / perdant ≈ 13,6 M.
+// Les frais payés = gas demandé × prix du gas du réseau (voir estimateFee).
 export const GAS = {
-  play: 15_000_000,
-  admin: 10_000_000,
-  deploy: 80_000_000,
+  play: 25_000_000,
+  resolve: 12_000_000,
+  reveal: 22_000_000,
+  refund: 22_000_000,
+  admin: 15_000_000,
+  deploy: 120_000_000, // contrat en 7 fichiers depuis l'audit de sécurité
 };
 
-// Dépôt de stockage prévu pour la toute première partie d'un joueur (mesuré :
-// ~0,44 GNOT, le contrat crée sa fiche et son historique), puis une petite
-// marge pour les parties suivantes. Sert à vérifier le solde avant de jouer.
-export const FIRST_GAME_DEPOSIT_UGNOT = 500_000;
-export const NEXT_GAME_DEPOSIT_UGNOT = 100_000;
+// Dépôt de stockage bloqué par la chaîne lors d'une mise (mesuré : ~0,84 GNOT
+// pour la 1re partie d'un joueur, qui crée sa fiche ; moins ensuite). Sert à
+// vérifier le solde avant de jouer, avec un peu de marge.
+export const FIRST_GAME_DEPOSIT_UGNOT = 1_000_000;
+export const NEXT_GAME_DEPOSIT_UGNOT = 500_000;
 
 // Nom affiché dans Adena lors de la demande de connexion.
 export const SITE_NAME = "GNO-DICE";

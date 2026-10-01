@@ -5,9 +5,12 @@ Jeu de dés décentralisé sur [Gno.land](https://gno.land).
 - Choisis un chiffre de **1 à 6**, mise entre **1 et 10 GNOT**.
 - Si le dé tombe sur ton chiffre, tu gagnes **5 fois ta mise**.
 - **Un lancer toutes les 10 minutes** par joueur.
-- Tout se passe dans un **smart contract Gno** : il reçoit la mise, lance le dé, paie le gagnant et garde l’historique.
+- Tout se passe dans un **smart contract Gno** : il reçoit la mise, vérifie le tirage, paie le gagnant et garde l’historique.
+- Le jeu est **prouvablement équitable** : ton chiffre reste caché pendant que le **croupier** (un service du site) tire le
+  dé, puis il est dévoilé et vérifié par le contrat. Personne, ni toi ni la maison, ne peut choisir le résultat.
 
 Le site (Next.js) sert d’interface : il lit le contrat gratuitement et demande à ton wallet **Adena** de signer les transactions.
+Le rapport d’audit de sécurité complet est dans [SECURITY_AUDIT.md](SECURITY_AUDIT.md).
 
 ---
 
@@ -29,18 +32,26 @@ Le site (Next.js) sert d’interface : il lit le contrat gratuitement et demande
 ```
 Gnodice/
 ├── contract/gnodice/        ← le smart contract Gno
-│   ├── gnodice.gno          ← règles du jeu : Play, Fund, Withdraw, SetPaused…
-│   ├── api.gno              ← lectures pour le site (GetInfoJSON, GetPlayerJSON)
-│   ├── render.gno           ← page lisible sur gnoweb
-│   ├── gnodice_test.gno     ← 14 tests du contrat
+│   ├── gnodice.gno          ← règles, données, explication du jeu en 3 étapes
+│   ├── game.gno             ← Play, Resolve, Reveal, Refund, Expire
+│   ├── fairness.gno         ← empreinte du chiffre caché et calcul du dé (SHA-256)
+│   ├── bank.gno             ← banque, réserve, coupe-circuit, alertes
+│   ├── admin.gno            ← pause, croupier, limites, liste noire, propriété
+│   ├── api.gno              ← lectures pour le site (JSON)
+│   ├── render.gno           ← page lisible sur gnoweb (avec vérification des tirages)
+│   ├── gnodice_test.gno     ← 26 tests du contrat (dont attaques et 1 000 parties)
 │   └── gnomod.toml
+├── contract/audit/          ← preuve de la faille de l’ancienne version (lecture seule)
+├── e2e/                     ← tests de bout en bout sur une vraie chaîne locale
+├── scripts/                 ← lancement des tests du contrat
 ├── src/
-│   ├── app/                 ← pages du site : / (jeu) et /admin
+│   ├── app/                 ← pages du site : / (jeu), /admin, et /api/croupier (serveur)
 │   ├── components/          ← morceaux d’interface (dé 3D, table de jeu, historique…)
 │   │   └── ui/              ← composants de base shadcn/ui (boutons, onglets, curseur…)
 │   ├── hooks/               ← lecture régulière des données du contrat
-│   └── lib/                 ← blockchain, Adena, calculs du dé 3D (+ tests)
-├── .env.example             ← modèle des réglages (réseau, adresse du contrat)
+│   └── lib/                 ← blockchain, Adena, équité, croupier (lib/server) + tests
+├── .env.example             ← modèle des réglages (réseau, contrat, croupier)
+├── vercel.json              ← tâche planifiée du croupier
 ├── tailwind.config.ts       ← couleurs et animations du thème (Tailwind CSS v3)
 ├── components.json          ← réglages shadcn/ui
 └── package.json
@@ -100,13 +111,21 @@ Pas besoin d’installer d’outil Gno : le site envoie le contrat, c’est toi 
    50 pour la banque du jeu, le reste pour jouer.
 3. Ouvre **`https://<ton-site>.vercel.app/admin`**, clique **« Connecter Adena »** puis **« Déployer le contrat »**, et accepte dans Adena.
    - Le contrat est publié à `gno.land/r/g1u97n45s4s6q7vn5clr8339pv4up455hnqn4aff/gnodice` et **tu en deviens le propriétaire**.
-   - Coût : environ **3,5 GNOT bloqués** (dépôt de stockage : le code prend de la place sur la blockchain) + ~0,1 GNOT de frais.
+   - Coût : quelques GNOT **bloqués** (dépôt de stockage : le code prend de la place sur la blockchain) + ~0,1 GNOT de frais
+     (gas mesuré : ~59 millions).
    - Sur Onyx, un « oracle » officiel vérifie le code avant de l’activer : l’état passe de *en attente* à *✔ actif*,
      en général en quelques minutes. La page se met à jour toute seule.
-4. Quand la page affiche **« ✔ C’est le contrat utilisé par le site : rien à configurer »**, **alimente la banque**
+4. **Configure le croupier** (obligatoire : sans lui, aucun dé n’est tiré) :
+   - crée dans Adena un **nouveau compte dédié** au croupier, envoie-lui **5 GNOT** (pour payer le gas de ses tirages) et
+     note sa phrase secrète ;
+   - sur Vercel (Settings → Environment Variables), ajoute **`CROUPIER_MNEMONIC`** = cette phrase secrète et
+     **`CRON_SECRET`** = une longue suite aléatoire, puis **redéploie** ;
+   - sur `/admin`, section « Surveillance et sécurité », clique **« Utiliser ce croupier »** et accepte dans Adena ;
+   - ⚠️ ne mets jamais cette phrase dans une variable `NEXT_PUBLIC_…` ni dans Git : elle deviendrait publique.
+5. Quand la page affiche **« ✔ C’est le contrat utilisé par le site : rien à configurer »**, **alimente la banque**
    (section « Gérer la banque ») : c’est elle qui paie les gains. Pour accepter la mise maximale de 10 GNOT, elle doit
-   contenir **au moins 40 GNOT** ; 50 à 100 GNOT est un bon début.
-5. Retourne sur la page d’accueil : **tu peux jouer** 🎲
+   avoir **au moins 40 GNOT disponibles** ; 50 à 100 GNOT est un bon début.
+6. Retourne sur la page d’accueil : **tu peux jouer** 🎲
 
 Le contrat est aussi visible sur gnoweb :
 <https://onyx.testnets.gno.land/r/g1u97n45s4s6q7vn5clr8339pv4up455hnqn4aff/gnodice>
@@ -119,19 +138,31 @@ les variables sont intégrées au site au moment du build.
 
 ## 5. Les tests
 
-**Tests du site** (40 vérifications : lecture des réponses de la blockchain, construction des transactions, messages
-d’erreur, orientation du dé 3D…) :
+**Tests du site** (67 vérifications : équité identique au contrat, croupier avec fausse blockchain, surveillance,
+transactions, messages d’erreur…) :
 
 ```bash
 npm test
 ```
 
-**Tests du contrat** (14 tests : règles du jeu, sécurité, cooldown, paiements, historique). Il faut l’outil `gno`
-([installation](https://docs.gno.land/builders/install)), puis depuis `contract/gnodice` :
+**Tests du contrat** (26 tests : règles du jeu, une attaque par test, coupe-circuit, 1 000 parties). Il faut Go et le
+dépôt Gno cloné ([installation](https://docs.gno.land/builders/install)) :
 
 ```bash
-gno test -v .
+git clone https://github.com/gnolang/gno.git ~/tools/gno-src
+cd ~/tools/gno-src && go install ./gnovm/cmd/gno ./contribs/gnodev
+cd <dossier Gnodice> && npm run test:contract     # GNO_ROOT / GNO_BIN si installés ailleurs
 ```
+
+**Tests de bout en bout** (vraies transactions sur une chaîne locale : partie complète, triches refusées, 8 joueurs en
+parallèle). Après `npm run test:contract` (qui copie le contrat dans `~/tools/gno-src/examples`), dans un premier
+terminal ouvert dans `~/tools/gno-src/examples` :
+
+```bash
+gnodev local -paths gno.land/r/example/gnodice -no-web -empty-blocks
+```
+
+puis dans un second terminal : `npm run test:e2e`.
 
 Autres vérifications : `npm run lint` (qualité du code) et `npm run build` (le même build que Vercel).
 
@@ -139,20 +170,23 @@ Autres vérifications : `npm run lint` (qualité du code) et `npm run build` (le
 
 ## 6. Sécurité et limites (à lire !)
 
-- **Le hasard n’est pas parfait.** Une blockchain est déterministe : il n’existe pas de vrai hasard. Le contrat mélange
-  (SHA-256) l’heure exacte du bloc, sa hauteur, le numéro de partie, l’adresse du joueur et l’historique des parties.
-  Un joueur ne peut pas prévoir le résultat quand il signe, mais **un validateur malveillant pourrait l’influencer**.
-  C’est très bien pour un testnet ; **pour de vrais montants sur le mainnet, il faudrait une meilleure source de hasard**
-  (par ex. un système « commit-reveal » ou un oracle).
-- **Protections en place :**
-  - seuls les appels directs depuis un wallet sont acceptés (un autre contrat ou un script ne peut pas tricher en
-    annulant ses parties perdues) ;
-  - la banque doit pouvoir payer 5× la mise, sinon la partie est refusée et la mise rendue ;
-  - perdre coûte toujours moins de gas que gagner (impossible d’annuler seulement ses défaites) ;
-  - seules les actions « Retirer », « Pause » et « Transfert de propriété » sont réservées au propriétaire.
+Le détail (failles trouvées, corrections, tests) est dans [SECURITY_AUDIT.md](SECURITY_AUDIT.md). L’essentiel :
+
+- **Le jeu en 3 étapes** : tu mises sur un chiffre **caché** (son empreinte SHA-256 avec un secret aléatoire gardé dans ton
+  navigateur) → le croupier tire le dé **sans connaître ton chiffre** et publie sa graine → ton chiffre est dévoilé, le
+  contrat vérifie et paie. Le site recalcule chaque tirage pour le vérifier.
+- **Ne change pas de navigateur entre la mise et la fin de la partie** : le secret est gardé dans celui-ci. Le site
+  termine la partie tout seul, en général en quelques secondes.
+- **Filets de sécurité** : si le croupier ne répond pas en 30 minutes, tu récupères ta mise (bouton « Récupérer ma
+  mise ») ; une partie jamais dévoilée expire après 7 jours et compte perdue.
+- **La banque réserve 5× chaque mise** : elle ne peut jamais promettre plus que ce qu’elle possède, et le propriétaire
+  ne peut retirer que la part non réservée.
+- **Coupe-circuit** : au-delà de 500 GNOT de gains dans la journée (réglable), le jeu se met en pause tout seul.
+- **Confiance dans le croupier** : il ne peut pas tricher contre un joueur (il ne connaît pas son chiffre). Si sa clé
+  était volée, le coupe-circuit limite les pertes ; change alors de croupier dans `/admin`.
 - **Avantage de la maison** : 1 chance sur 6 de gagner 5× → le joueur récupère en moyenne 83 % de ses mises.
-- **Frais pour le joueur** : ~0,02 GNOT de frais réseau par lancer, et environ 0,44 GNOT de dépôt de stockage lors de la
-  toute première partie d’un joueur (la place de son historique sur la blockchain).
+- **Frais pour le joueur** : ~0,02 GNOT de frais réseau par lancer, et environ 0,85 GNOT de dépôt de stockage lors de la
+  toute première partie d’un joueur (mesuré sur une chaîne locale ; la place de sa fiche sur la blockchain).
 - Le site ne voit **jamais** ta clé privée : Adena signe, toi tu acceptes ou refuses.
 
 ---
@@ -160,7 +194,8 @@ Autres vérifications : `npm run lint` (qualité du code) et `npm run build` (le
 ## 7. Passer au mainnet plus tard
 
 Le mainnet Gno.land (`gnoland-1`) est lancé depuis le 12/09/2026. Les GNOT y ont une vraie valeur et il n’y a pas de
-faucet. **Ne le fais qu’après avoir amélioré la source de hasard (voir section 6)** et fait relire le contrat.
+faucet. Suis d’abord la **checklist de mise en production** de [SECURITY_AUDIT.md](SECURITY_AUDIT.md) et fais relire le contrat par
+un auditeur indépendant.
 Il suffira alors de redéployer le contrat sur le mainnet et de changer les variables (valeurs dans `.env.example`).
 
 ---

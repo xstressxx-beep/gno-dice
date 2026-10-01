@@ -75,7 +75,7 @@ describe("connexion", () => {
 });
 
 describe("envoi d'une transaction", () => {
-  const msg = playMessage(PLAYER, 3, 5_000_000, REALM);
+  const msg = playMessage(PLAYER, "b0ee524a518406c9ca0b10d37962bdd2eb817023959d4896aab9e599afb9e7f2", 5_000_000, REALM);
 
   it("renvoie la valeur retournée par le contrat", async () => {
     const adena = mockAdena({
