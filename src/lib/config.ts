@@ -3,8 +3,9 @@
 // .env.example). Next.js les intègre au site au moment du build : après une
 // modification sur Vercel, il faut redéployer.
 
-// Adresse du wallet Adena du propriétaire (celle qui a déjà publié la roulette
-// Gnosino : gno.land/r/g1u97n.../roulette_v6). En déployant le contrat depuis
+// Adresse du wallet Adena du propriétaire. Le même wallet possède aussi la
+// roulette Gnosino (projet séparé, chemin roulette_v6) : les deux contrats ont
+// des chemins différents, donc aucun conflit. En déployant le contrat depuis
 // /admin avec ce wallet, il arrive exactement au chemin ci-dessous : le site
 // fonctionne alors sans aucun réglage sur Vercel.
 const OWNER_ADDRESS = "g1u97n45s4s6q7vn5clr8339pv4up455hnqn4aff";

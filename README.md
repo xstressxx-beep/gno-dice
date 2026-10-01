@@ -73,18 +73,17 @@ Tant que le contrat n’est pas déployé, le site affiche « Le contrat GNO-DIC
 
 Le code est déjà enregistré dans Git (commit fait). Il reste à l’envoyer sur GitHub puis à le brancher sur Vercel.
 
-> ⚠️ **Attention : `gnosino.vercel.app` héberge actuellement ta roulette « Gnosino ».**
-> Si tu déploies GNO-DICE dans **ce même projet Vercel**, la roulette sera **remplacée**.
-> Crée un **nouveau projet Vercel** (par ex. `gnodice.vercel.app`), sauf si tu veux vraiment remplacer la roulette.
+> ⚠️ **GNO-DICE et la roulette « Gnosino » sont deux projets distincts.**
+> `gnosino.vercel.app` reste réservé à la roulette : ne branche **pas** ce dépôt sur ce projet Vercel.
+> Crée un **nouveau projet Vercel** dédié (par ex. `gnodice.vercel.app`).
 
-1. Sur <https://github.com/new>, crée un dépôt **vide** nommé `gnodice` (ne coche ni README, ni .gitignore, ni licence).
-2. Dans un terminal ouvert dans ce dossier (`Documents\Gnodice`) :
+1. Le dépôt GitHub existe déjà : <https://github.com/xstressxx-beep/gno-dice>.
+2. Dans un terminal ouvert dans ce dossier (`Documents\Gnodice`), envoie le code :
    ```bash
-   git remote add origin https://github.com/<ton-compte-github>/gnodice.git
    git push -u origin main
    ```
    Une fenêtre GitHub s’ouvre la première fois pour te connecter : c’est normal.
-3. Sur <https://vercel.com/new>, clique **Import** à côté du dépôt `gnodice`.
+3. Sur <https://vercel.com/new>, clique **Import** à côté du dépôt `gno-dice` (un **nouveau** projet, pas celui de Gnosino).
    Vercel détecte Next.js tout seul : **ne change aucun réglage**, aucune variable n’est nécessaire. Clique **Deploy**. ✅
 
 Ensuite, à chaque `git push`, Vercel remet le site à jour automatiquement.

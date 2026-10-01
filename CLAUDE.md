@@ -2,7 +2,14 @@
 
 ## 🎯 Description du projet
 Jeu de dés décentralisé sur Gno.land. 
-Site : https://gnosino.vercel.app/
+Site : nouveau projet Vercel dédié (ex. https://gnodice.vercel.app/, à créer)
+Dépôt GitHub : https://github.com/xstressxx-beep/gno-dice
+Contrat : gno.land/r/<adresse-owner>/gnodice
+
+## 🚧 Projet distinct de Gnosino
+- Gnosino (la roulette, https://gnosino.vercel.app/, contrat roulette_v6) est un AUTRE projet.
+- Ne jamais déployer, modifier ni supprimer quoi que ce soit lié à Gnosino depuis ce dépôt.
+- Seul point commun : le même wallet Adena propriétaire (aucun conflit, chemins de contrat différents).
 
 ## 🏗️ Stack technique
 - Frontend : Next.js / React (déployé sur Vercel)
